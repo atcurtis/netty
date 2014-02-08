@@ -25,7 +25,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.channels.SocketChannel;
 
-public class NioSocketChannel extends AbstractNioChannel<SocketChannel>
+public class NioSocketChannel extends AbstractNioSocketChannel<SocketChannel>
                                 implements org.jboss.netty.channel.socket.SocketChannel {
 
     private static final int ST_OPEN = 0;

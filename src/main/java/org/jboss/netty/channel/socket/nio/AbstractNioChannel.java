@@ -25,9 +25,7 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.socket.nio.SocketSendBufferPool.SendBuffer;
 import org.jboss.netty.util.internal.ThreadLocalBoolean;
 
-import java.net.InetSocketAddress;
 import java.nio.channels.SelectableChannel;
-import java.nio.channels.WritableByteChannel;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Queue;
@@ -37,7 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.jboss.netty.channel.Channels.*;
 
-abstract class AbstractNioChannel<C extends SelectableChannel & WritableByteChannel> extends AbstractChannel {
+abstract class AbstractNioChannel<C extends SelectableChannel> extends AbstractChannel {
 
     /**
      * The {@link AbstractNioWorker}.
@@ -87,9 +85,6 @@ abstract class AbstractNioChannel<C extends SelectableChannel & WritableByteChan
     boolean inWriteNowLoop;
     boolean writeSuspended;
 
-    private volatile InetSocketAddress localAddress;
-    volatile InetSocketAddress remoteAddress;
-
     final C channel;
 
     protected AbstractNioChannel(
@@ -116,39 +111,6 @@ abstract class AbstractNioChannel<C extends SelectableChannel & WritableByteChan
      */
     public AbstractNioWorker getWorker() {
         return worker;
-    }
-
-    public InetSocketAddress getLocalAddress() {
-        InetSocketAddress localAddress = this.localAddress;
-        if (localAddress == null) {
-            try {
-                localAddress = getLocalSocketAddress();
-                if (localAddress.getAddress().isAnyLocalAddress()) {
-                    // Don't cache on a wildcard address so the correct one
-                    // will be cached once the channel is connected/bound
-                    return localAddress;
-                }
-                this.localAddress = localAddress;
-            } catch (Throwable t) {
-                // Sometimes fails on a closed socket in Windows.
-                return null;
-            }
-        }
-        return localAddress;
-    }
-
-    public InetSocketAddress getRemoteAddress() {
-        InetSocketAddress remoteAddress = this.remoteAddress;
-        if (remoteAddress == null) {
-            try {
-                this.remoteAddress = remoteAddress =
-                    getRemoteSocketAddress();
-            } catch (Throwable t) {
-                // Sometimes fails on a closed socket in Windows.
-                return null;
-            }
-        }
-        return remoteAddress;
     }
 
     public abstract NioChannelConfig getConfig();
@@ -197,9 +159,11 @@ abstract class AbstractNioChannel<C extends SelectableChannel & WritableByteChan
         return super.setClosed();
     }
 
-    abstract InetSocketAddress getLocalSocketAddress() throws Exception;
+    abstract void setConnected();
 
-    abstract InetSocketAddress getRemoteSocketAddress() throws Exception;
+    //abstract InetSocketAddress getLocalSocketAddress() throws Exception;
+
+    //abstract InetSocketAddress getRemoteSocketAddress() throws Exception;
 
     private final class WriteRequestQueue implements Queue<MessageEvent> {
         private final ThreadLocalBoolean notifying = new ThreadLocalBoolean();

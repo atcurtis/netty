@@ -43,7 +43,7 @@ import static org.jboss.netty.channel.Channels.*;
 /**
  * Provides an NIO based {@link org.jboss.netty.channel.socket.DatagramChannel}.
  */
-public class NioDatagramChannel extends AbstractNioChannel<DatagramChannel>
+public class NioDatagramChannel extends AbstractNioSocketChannel<DatagramChannel>
                                 implements org.jboss.netty.channel.socket.DatagramChannel {
 
     /**
@@ -114,6 +114,12 @@ public class NioDatagramChannel extends AbstractNioChannel<DatagramChannel>
     }
 
     @Override
+    void setConnected()
+    {
+      // does nothing;
+    }
+
+  @Override
     public NioDatagramChannelConfig getConfig() {
         return config;
     }

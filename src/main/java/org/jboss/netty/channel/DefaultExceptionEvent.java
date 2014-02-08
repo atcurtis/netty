@@ -56,6 +56,7 @@ public class DefaultExceptionEvent implements ExceptionEvent {
 
     @Override
     public String toString() {
+      cause.printStackTrace();
         return getChannel().toString() + " EXCEPTION: " + cause;
     }
 }

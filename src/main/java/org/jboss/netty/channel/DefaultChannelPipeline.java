@@ -550,7 +550,8 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         if (head == null) {
             if (logger.isWarnEnabled()) {
                 logger.warn(
-                        "The pipeline contains no upstream handlers; discarding: " + e);
+                        "The pipeline contains no upstream handlers; discarding: " + e.getClass().getSimpleName() + " - " + e);
+
             }
 
             return;

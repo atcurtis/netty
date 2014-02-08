@@ -27,8 +27,8 @@ import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.SocketChannel;
 import java.util.concurrent.Executor;
 
 import static org.jboss.netty.channel.Channels.*;
@@ -47,11 +47,13 @@ public class NioWorker extends AbstractNioWorker {
 
     @Override
     protected boolean read(SelectionKey k) {
-        final SocketChannel ch = (SocketChannel) k.channel();
-        final NioSocketChannel channel = (NioSocketChannel) k.attachment();
+        final ReadableByteChannel ch = (ReadableByteChannel) k.channel();
+        //final SocketChannel ch = (SocketChannel) k.channel();
+        final AbstractNioChannel channel = (AbstractNioChannel) k.attachment();
+        final NioSelectableChannelConfig config = (NioSelectableChannelConfig) channel.getConfig();
 
         final ReceiveBufferSizePredictor predictor =
-            channel.getConfig().getReceiveBufferSizePredictor();
+            config.getReceiveBufferSizePredictor();
         final int predictedRecvBufSize = predictor.nextReceiveBufferSize();
         final ChannelBufferFactory bufferFactory = channel.getConfig().getBufferFactory();
 
@@ -114,17 +116,18 @@ public class NioWorker extends AbstractNioWorker {
 
     @Override
     protected Runnable createRegisterTask(Channel channel, ChannelFuture future) {
-        boolean server = !(channel instanceof NioClientSocketChannel);
-        return new RegisterTask((NioSocketChannel) channel, future, server);
+        boolean server = !(channel instanceof NioClientSocketChannel)
+            && !(channel instanceof NioPipeChannel);
+        return new RegisterTask((AbstractNioChannel) channel, future, server);
     }
 
     private final class RegisterTask implements Runnable {
-        private final NioSocketChannel channel;
+        private final AbstractNioChannel channel;
         private final ChannelFuture future;
         private final boolean server;
 
         RegisterTask(
-                NioSocketChannel channel, ChannelFuture future, boolean server) {
+                AbstractNioChannel channel, ChannelFuture future, boolean server) {
 
             this.channel = channel;
             this.future = future;
@@ -156,7 +159,7 @@ public class NioWorker extends AbstractNioWorker {
                     future.setSuccess();
                 }
 
-                if (server || !((NioClientSocketChannel) channel).boundManually) {
+                if (server || (channel instanceof NioClientSocketChannel && !((NioClientSocketChannel) channel).boundManually)) {
                     fireChannelBound(channel, localAddress);
                 }
                 fireChannelConnected(channel, remoteAddress);

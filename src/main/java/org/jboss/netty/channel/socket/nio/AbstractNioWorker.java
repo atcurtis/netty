@@ -169,7 +169,7 @@ abstract class AbstractNioWorker extends AbstractNioSelector implements Worker {
         long writtenBytes = 0;
 
         final SocketSendBufferPool sendBufferPool = this.sendBufferPool;
-        final WritableByteChannel ch = channel.channel;
+        final WritableByteChannel ch = WritableByteChannel.class.cast(channel.channel);
         final Queue<MessageEvent> writeBuffer = channel.writeBufferQueue;
         final int writeSpinCount = channel.getConfig().getWriteSpinCount();
         List<Throwable> causes = null;
