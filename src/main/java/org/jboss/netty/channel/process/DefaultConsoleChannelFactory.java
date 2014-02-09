@@ -25,11 +25,11 @@ import java.util.concurrent.Executor;
 /**
  * Created with IntelliJ IDEA.
  * User: atcurtis
- * Date: 2/7/14
- * Time: 10:15 PM
+ * Date: 2/8/14
+ * Time: 4:33 PM
  * To change this template use File | Settings | File Templates.
  */
-public class DefaultProcessChannelFactory implements ProcessChannelFactory
+public class DefaultConsoleChannelFactory implements ConsoleChannelFactory
 {
   public static final SocketAddress LOCAL = new SocketAddress()
   {
@@ -39,34 +39,42 @@ public class DefaultProcessChannelFactory implements ProcessChannelFactory
       return "LOCAL";
     }
   };
+  public static final SocketAddress PARENT = new SocketAddress()
+  {
+    @Override
+    public String toString()
+    {
+      return "PARENT";
+    }
+  };
 
+  private final ConsoleChannelSink sink;
 
-  private final ProcessChannelSink sink;
-
-  private DefaultProcessChannelFactory(ProcessChannelSink sink)
+  private DefaultConsoleChannelFactory(ConsoleChannelSink sink)
   {
     this.sink = sink;
   }
 
-  public DefaultProcessChannelFactory(Executor workerExecutor)
+  public DefaultConsoleChannelFactory(Executor workerExecutor)
   {
-    this(new ProcessChannelSink(workerExecutor));
+    this(new ConsoleChannelSink(workerExecutor));
   }
 
-  public DefaultProcessChannelFactory(Executor workerExecutor,
+  public DefaultConsoleChannelFactory(Executor workerExecutor,
                                       int workerCount)
   {
-    this(new ProcessChannelSink(workerExecutor, workerCount));
+    this(new ConsoleChannelSink(workerExecutor, workerCount));
   }
 
-  public DefaultProcessChannelFactory(WorkerPool<NioWorker> workerPool)
+  public DefaultConsoleChannelFactory(WorkerPool<NioWorker> workerPool)
   {
-    this(new ProcessChannelSink(workerPool));
+    this(new ConsoleChannelSink(workerPool));
   }
 
-  public ProcessChannel newChannel(ChannelPipeline pipeline)
+
+  public ConsoleChannel newChannel(ChannelPipeline pipeline)
   {
-    return new DefaultProcessChannel(null, this, pipeline, sink);
+    return new DefaultConsoleChannel(null, this, pipeline, sink);
   }
 
   public void shutdown()

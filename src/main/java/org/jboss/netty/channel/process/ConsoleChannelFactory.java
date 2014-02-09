@@ -13,33 +13,19 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.jboss.netty.channel.socket.nio;
+package org.jboss.netty.channel.process;
 
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelPipeline;
 
-import java.nio.channels.Pipe;
-import java.nio.channels.SelectionKey;
-
-import static org.jboss.netty.channel.Channels.fireChannelOpen;
-
 /**
  * Created with IntelliJ IDEA.
  * User: atcurtis
- * Date: 2/7/14
- * Time: 10:35 PM
+ * Date: 2/8/14
+ * Time: 4:25 PM
  * To change this template use File | Settings | File Templates.
  */
-public class NioPipeSinkChannel extends NioPipeChannel<Pipe.SinkChannel>
+public interface ConsoleChannelFactory extends ChannelFactory
 {
-  NioPipeSinkChannel(
-      Pipe.SinkChannel pipeSink,
-      ChannelFactory factory, ChannelPipeline pipeline,
-      NioPipeChannelSink sink, NioWorker worker, Type type) {
-
-    super(null, factory, pipeline, sink, worker, pipeSink, type);
-    setInterestOpsNow(SelectionKey.OP_WRITE);
-    fireChannelOpen(this);
-  }
-
+  ConsoleChannel newChannel(ChannelPipeline pipeline);
 }

@@ -84,10 +84,7 @@ public class NioPipeChannelSink extends AbstractNioChannelSink
             channel.channel.configureBlocking(false);
             channel.localAddress = LOCAL;
             channel.remoteAddress = (SocketAddress) value;
-            if (channel instanceof NioPipeSourceChannel)
-            {
-              channel.worker.register(channel, future);
-            }
+            channel.worker.register(channel, future);
           }
           catch (IOException ex)
           {

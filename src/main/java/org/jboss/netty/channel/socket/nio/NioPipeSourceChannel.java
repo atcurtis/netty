@@ -21,6 +21,7 @@ import org.jboss.netty.channel.ChannelPipeline;
 
 import java.net.SocketAddress;
 import java.nio.channels.Pipe;
+import java.nio.channels.SelectionKey;
 
 import static org.jboss.netty.channel.Channels.fireChannelOpen;
 
@@ -39,6 +40,7 @@ public class NioPipeSourceChannel extends NioPipeChannel<Pipe.SourceChannel>
       NioPipeChannelSink sink, NioWorker worker, Type type) {
 
     super(null, factory, pipeline, sink, worker, pipeSource, type);
+    setInterestOpsNow(SelectionKey.OP_READ);
     fireChannelOpen(this);
   }
 

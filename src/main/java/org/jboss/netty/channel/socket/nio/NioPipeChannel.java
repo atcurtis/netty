@@ -46,7 +46,10 @@ public abstract class NioPipeChannel<C extends SelectableChannel> extends Abstra
     PIPE_SINK,
     PROCESS_STDIN,
     PROCESS_STDOUT,
-    PROCESS_STDERR
+    PROCESS_STDERR,
+    CONSOLE_STDIN,
+    CONSOLE_STDOUT,
+    CONSOLE_STDERR
   }
 
   static <T extends SelectableChannel> NioPipeChannel<T> makeChannel(ChannelFactory factory, ChannelPipeline pipeline, NioPipeChannelSink sink,

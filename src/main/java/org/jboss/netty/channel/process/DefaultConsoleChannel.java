@@ -22,7 +22,6 @@ import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.DefaultChannelConfig;
-import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioPipeSinkChannel;
 import org.jboss.netty.channel.socket.nio.NioPipeSourceChannel;
 
@@ -33,24 +32,38 @@ import static org.jboss.netty.channel.Channels.fireChannelClosed;
 /**
  * Created with IntelliJ IDEA.
  * User: atcurtis
- * Date: 2/7/14
- * Time: 10:13 PM
+ * Date: 2/8/14
+ * Time: 4:29 PM
  * To change this template use File | Settings | File Templates.
  */
-public class DefaultProcessChannel extends AbstractChannel implements ProcessChannel
+public class DefaultConsoleChannel extends AbstractChannel implements ConsoleChannel
 {
   private final ChannelConfig config;
-  volatile ChannelGroup group;
-  volatile NioPipeSinkChannel stdin;
-  volatile NioPipeSourceChannel stdout;
-  volatile NioPipeSourceChannel stderr;
+  volatile NioPipeSourceChannel stdin;
+  volatile NioPipeSinkChannel stdout;
+  volatile NioPipeSinkChannel stderr;
   volatile SocketAddress localAddress;
-  volatile ProcessAddress remoteAddress;
+  volatile SocketAddress remoteAddress;
 
-  protected DefaultProcessChannel(Channel parent, ChannelFactory factory, ChannelPipeline pipeline, ProcessChannelSink sink)
+  protected DefaultConsoleChannel(Channel parent, ChannelFactory factory, ChannelPipeline pipeline, ConsoleChannelSink sink)
   {
     super(parent, factory, pipeline, sink);
     config = new DefaultChannelConfig();
+  }
+
+  public NioPipeSourceChannel getInputChannel()
+  {
+    return stdin;
+  }
+
+  public NioPipeSinkChannel getOutputChannel()
+  {
+    return stdout;
+  }
+
+  public NioPipeSinkChannel getErrorChannel()
+  {
+    return stderr;
   }
 
   public ChannelConfig getConfig()
@@ -60,23 +73,12 @@ public class DefaultProcessChannel extends AbstractChannel implements ProcessCha
 
   public boolean isBound()
   {
-    return getRemoteAddress() != null;
+    return remoteAddress != null;
   }
 
   public boolean isConnected()
   {
-    ProcessAddress address = getRemoteAddress();
-    if (address == null || address.process() == null)
-      return false;
-    try
-    {
-      address.process().exitValue();
-      return false;
-    }
-    catch (IllegalThreadStateException ignored)
-    {
-      return true;
-    }
+    return remoteAddress != null;
   }
 
   public SocketAddress getLocalAddress()
@@ -84,42 +86,18 @@ public class DefaultProcessChannel extends AbstractChannel implements ProcessCha
     return localAddress;
   }
 
-  public ProcessAddress getRemoteAddress()
+  public SocketAddress getRemoteAddress()
   {
     return remoteAddress;
   }
 
-  public NioPipeSinkChannel getInputChannel()
-  {
-    return stdin;
-  }
-
-  public NioPipeSourceChannel getOutputChannel()
-  {
-    return stdout;
-  }
-
-  public NioPipeSourceChannel getErrorChannel()
-  {
-    return stderr;
-  }
-
   void closeNow(ChannelFuture future)
   {
-    ProcessAddress address = this.remoteAddress;
+    SocketAddress address = this.remoteAddress;
     try {
       // Close the self.
       if (!setClosed()) {
         return;
-      }
-
-      if (address.process() != null)
-        address.process().destroy();
-
-      if (group != null)
-      {
-        group.close();
-        group = null;
       }
 
       fireChannelClosed(this);
@@ -129,4 +107,5 @@ public class DefaultProcessChannel extends AbstractChannel implements ProcessCha
       future.setSuccess();
     }
   }
+
 }

@@ -127,6 +127,13 @@ public class NioPipeChannelFactory implements ChannelFactory
     factoryQueue.offer(new PipeSource(pipe));
   }
 
+  public void newConsole()
+  {
+    factoryQueue.offer(new ConsoleInput());
+    factoryQueue.offer(new ConsoleOutput());
+    factoryQueue.offer(new ConsoleError());
+  }
+
   public Process newProcess(ProcessAddress address)
       throws IOException
   {
@@ -403,6 +410,57 @@ public class NioPipeChannelFactory implements ChannelFactory
     public NioPipeChannel.Type type()
     {
       return NioPipeChannel.Type.PROCESS_STDERR;
+    }
+  }
+
+  private static class ConsoleInput implements Factory
+  {
+    public final NioPipeSourceChannel newChannel(ChannelFactory factory, ChannelPipeline pipeline,
+                                                 NioPipeChannelSink sink, final NioWorker worker)
+    {
+      FileDescriptor fd = FileDescriptor.in;
+      SelectorProvider provider = SelectorProvider.provider();
+      return new NioPipeSourceChannel(newInstance(SOURCE_CHANNEL_CONSTRUCTOR, provider, fd),
+                                      factory, pipeline, sink, worker, type());
+    }
+
+    public NioPipeChannel.Type type()
+    {
+      return NioPipeChannel.Type.CONSOLE_STDIN;
+    }
+  }
+
+  private static class ConsoleOutput implements Factory
+  {
+    public final NioPipeSinkChannel newChannel(ChannelFactory factory, ChannelPipeline pipeline,
+                                               NioPipeChannelSink sink, final NioWorker worker)
+    {
+      FileDescriptor fd = FileDescriptor.out;
+      SelectorProvider provider = SelectorProvider.provider();
+      return new NioPipeSinkChannel(newInstance(SINK_CHANNEL_CONSTRUCTOR, provider, fd),
+                                    factory, pipeline, sink, worker, type());
+    }
+
+    public NioPipeChannel.Type type()
+    {
+      return NioPipeChannel.Type.CONSOLE_STDOUT;
+    }
+  }
+
+  private static class ConsoleError implements Factory
+  {
+    public final NioPipeSinkChannel newChannel(ChannelFactory factory, ChannelPipeline pipeline,
+                                               NioPipeChannelSink sink, final NioWorker worker)
+    {
+      FileDescriptor fd = FileDescriptor.err;
+      SelectorProvider provider = SelectorProvider.provider();
+      return new NioPipeSinkChannel(newInstance(SINK_CHANNEL_CONSTRUCTOR, provider, fd),
+                                    factory, pipeline, sink, worker, type());
+    }
+
+    public NioPipeChannel.Type type()
+    {
+      return NioPipeChannel.Type.CONSOLE_STDERR;
     }
   }
 

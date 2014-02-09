@@ -35,6 +35,7 @@ import org.jboss.netty.channel.socket.nio.NioPipeSourceChannel;
 import org.jboss.netty.channel.socket.nio.NioWorker;
 import org.jboss.netty.channel.socket.nio.WorkerPool;
 
+import java.net.SocketAddress;
 import java.nio.channels.SelectionKey;
 import java.util.concurrent.Executor;
 
@@ -45,31 +46,31 @@ import static org.jboss.netty.channel.Channels.fireMessageReceived;
 /**
  * Created with IntelliJ IDEA.
  * User: atcurtis
- * Date: 2/7/14
- * Time: 10:16 PM
+ * Date: 2/8/14
+ * Time: 4:36 PM
  * To change this template use File | Settings | File Templates.
  */
-public class ProcessChannelSink extends AbstractChannelSink
+public class ConsoleChannelSink extends AbstractChannelSink
 {
   private final NioPipeChannelFactory factory;
 
-  private ProcessChannelSink(NioPipeChannelFactory factory)
+  private ConsoleChannelSink(NioPipeChannelFactory factory)
   {
     this.factory = factory;
   }
 
-  public ProcessChannelSink(Executor workerExecutor)
+  public ConsoleChannelSink(Executor workerExecutor)
   {
     this(new NioPipeChannelFactory(workerExecutor));
   }
 
-  public ProcessChannelSink(Executor workerExecutor,
+  public ConsoleChannelSink(Executor workerExecutor,
                             int workerCount)
   {
     this(new NioPipeChannelFactory(workerExecutor, workerCount));
   }
 
-  public ProcessChannelSink(WorkerPool<NioWorker> workerPool)
+  public ConsoleChannelSink(WorkerPool<NioWorker> workerPool)
   {
     this(new NioPipeChannelFactory(workerPool));
   }
@@ -80,7 +81,7 @@ public class ProcessChannelSink extends AbstractChannelSink
     if (e instanceof ChannelStateEvent)
     {
       ChannelStateEvent event = (ChannelStateEvent) e;
-      DefaultProcessChannel channel = (DefaultProcessChannel) event.getChannel();
+      DefaultConsoleChannel channel = (DefaultConsoleChannel) event.getChannel();
       ChannelFuture future = event.getFuture();
       ChannelState state = event.getState();
       Object value = event.getValue();
@@ -108,7 +109,7 @@ public class ProcessChannelSink extends AbstractChannelSink
       case CONNECTED:
         if (value != null)
         {
-          connect(channel, future, (ProcessAddress) value);
+          connect(channel, future, DefaultConsoleChannelFactory.PARENT);
         }
         else
         {
@@ -118,19 +119,20 @@ public class ProcessChannelSink extends AbstractChannelSink
       case INTEREST_OPS:
         int ops = (Integer) value;
         if (channel.getInputChannel() != null)
-          Channels.setInterestOps(channel.getInputChannel(), ops & SelectionKey.OP_WRITE);
+          Channels.setInterestOps(channel.getInputChannel(), ops & SelectionKey.OP_READ);
         if (channel.getOutputChannel() != null)
-          Channels.setInterestOps(channel.getOutputChannel(), ops & SelectionKey.OP_READ);
+          Channels.setInterestOps(channel.getOutputChannel(), ops & SelectionKey.OP_WRITE);
         if (channel.getErrorChannel() != null)
-          Channels.setInterestOps(channel.getErrorChannel(), ops & SelectionKey.OP_READ);
+          Channels.setInterestOps(channel.getErrorChannel(), ops & SelectionKey.OP_WRITE);
         break;
       }
-    } else
+    }
+    else
     if (e instanceof MessageEvent)
     {
       final MessageEvent event = (MessageEvent) e;
-      ProcessChannel channel = (ProcessChannel) event.getChannel();
-      channel.getInputChannel().write(event.getMessage()).addListener(new ChannelFutureListener()
+      ConsoleChannel channel = (ConsoleChannel) event.getChannel();
+      channel.getOutputChannel().write(event.getMessage()).addListener(new ChannelFutureListener()
       {
         public void operationComplete(ChannelFuture future)
             throws Exception
@@ -148,47 +150,42 @@ public class ProcessChannelSink extends AbstractChannelSink
     }
   }
 
-  private void connect(DefaultProcessChannel channel, ChannelFuture future, ProcessAddress address)
+  private void connect(DefaultConsoleChannel channel, ChannelFuture future, SocketAddress address)
   {
     DefaultChannelGroup group = new DefaultChannelGroup();
     try
     {
-      Process process = factory.newProcess(address);
-      address = new ProcessAddress(address, process);
+      factory.newConsole();
 
       for (NioPipeChannel.Type type = factory.getNextChannelType(); type != null; type = factory.getNextChannelType())
       {
         NioPipeChannel c;
         switch (type)
         {
-        case PROCESS_STDERR:
-          c = factory.newChannel(Channels.pipeline(new StdOutHandler(channel)));
-          assert c.type() == type;
-          group.add(c);
-          Channels.connect(c, address);
-          channel.stderr = (NioPipeSourceChannel) c;
-          break;
-        case PROCESS_STDOUT:
-          c = factory.newChannel(Channels.pipeline(new StdOutHandler(channel)));
-          assert c.type() == type;
-          group.add(c);
-          Channels.connect(c, address);
-          channel.stdout = (NioPipeSourceChannel) c;
-          break;
-        case PROCESS_STDIN:
+        case CONSOLE_STDERR:
           c = factory.newChannel(Channels.pipeline());
           assert c.type() == type;
-          group.add(c);
           Channels.connect(c, address);
-          channel.stdin = (NioPipeSinkChannel) c;
+          channel.stderr = (NioPipeSinkChannel) c;
+          break;
+        case CONSOLE_STDOUT:
+          c = factory.newChannel(Channels.pipeline());
+          assert c.type() == type;
+          Channels.connect(c, address);
+          channel.stdout = (NioPipeSinkChannel) c;
+          break;
+        case CONSOLE_STDIN:
+          c = factory.newChannel(Channels.pipeline(new StdInHandler(channel)));
+          assert c.type() == type;
+          Channels.connect(c, address);
+          channel.stdin = (NioPipeSourceChannel) c;
           break;
         default:
           throw new IllegalStateException();
         }
       }
-      channel.localAddress = DefaultProcessChannelFactory.LOCAL;
+      channel.localAddress = DefaultConsoleChannelFactory.LOCAL;
       channel.remoteAddress = address;
-      channel.group = group;
       fireChannelConnected(channel, channel.remoteAddress);
       future.setSuccess();
     }
@@ -210,13 +207,13 @@ public class ProcessChannelSink extends AbstractChannelSink
     factory.releaseExternalResources();
   }
 
-  private class StdOutHandler implements ChannelUpstreamHandler
+  private class StdInHandler implements ChannelUpstreamHandler
   {
-    final ProcessChannel processChannel;
+    final ConsoleChannel consoleChannel;
 
-    private StdOutHandler(ProcessChannel processChannel)
+    private StdInHandler(ConsoleChannel consoleChannel)
     {
-      this.processChannel = processChannel;
+      this.consoleChannel = consoleChannel;
     }
 
     public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e)
@@ -227,7 +224,7 @@ public class ProcessChannelSink extends AbstractChannelSink
         MessageEvent event = (MessageEvent) e;
         if (event.getMessage() instanceof ChannelBuffer)
         {
-          fireMessageReceived(processChannel, event.getMessage(), processChannel.getRemoteAddress());
+          fireMessageReceived(consoleChannel, event.getMessage(), consoleChannel.getRemoteAddress());
           e.getFuture().setSuccess();
           return;
         }
@@ -235,4 +232,5 @@ public class ProcessChannelSink extends AbstractChannelSink
       ctx.sendUpstream(e);
     }
   }
+
 }
