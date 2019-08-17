@@ -15,14 +15,13 @@
  */
 package io.netty.handler.codec.http;
 
+import io.netty.util.AsciiString;
+import io.netty.util.URLCodec;
 import io.netty.util.internal.ObjectUtil;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
 import java.nio.charset.Charset;
-import java.nio.charset.UnsupportedCharsetException;
 
 /**
  * Creates an URL-encoded URI from a path string and key-value parameter pairs.
@@ -37,7 +36,7 @@ import java.nio.charset.UnsupportedCharsetException;
  */
 public class QueryStringEncoder {
 
-    private final String charsetName;
+    private final Charset charset;
     private final StringBuilder uriBuilder;
     private boolean hasParams;
 
@@ -55,7 +54,10 @@ public class QueryStringEncoder {
      */
     public QueryStringEncoder(String uri, Charset charset) {
         uriBuilder = new StringBuilder(uri);
-        charsetName = charset.name();
+        if (charset == null) {
+            throw new NullPointerException("charset");
+        }
+        this.charset = charset;
     }
 
     /**
@@ -69,10 +71,10 @@ public class QueryStringEncoder {
             uriBuilder.append('?');
             hasParams = true;
         }
-        appendComponent(name, charsetName, uriBuilder);
+        appendComponent(name, charset, uriBuilder);
         if (value != null) {
             uriBuilder.append('=');
-            appendComponent(value, charsetName, uriBuilder);
+            appendComponent(value, charset, uriBuilder);
         }
     }
 
@@ -95,14 +97,10 @@ public class QueryStringEncoder {
         return uriBuilder.toString();
     }
 
-    private static void appendComponent(String s, String charset, StringBuilder sb) {
-        try {
-            s = URLEncoder.encode(s, charset);
-        } catch (UnsupportedEncodingException ignored) {
-            throw new UnsupportedCharsetException(charset);
-        }
+    private static void appendComponent(CharSequence s, Charset charset, StringBuilder sb) {
+        s = URLCodec.encode(s, charset);
         // replace all '+' with "%20"
-        int idx = s.indexOf('+');
+        int idx = AsciiString.indexOf(s, '+', 0);
         if (idx == -1) {
             sb.append(s);
             return;

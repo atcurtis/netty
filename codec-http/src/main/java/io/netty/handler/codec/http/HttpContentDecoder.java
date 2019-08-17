@@ -21,6 +21,7 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.CodecException;
 import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.MessageToMessageDecoder;
+import io.netty.util.AsciiString;
 import io.netty.util.ReferenceCountUtil;
 
 import java.util.List;
@@ -46,7 +47,7 @@ import java.util.List;
  */
 public abstract class HttpContentDecoder extends MessageToMessageDecoder<HttpObject> {
 
-    static final String IDENTITY = HttpHeaderValues.IDENTITY.toString();
+    static final AsciiString IDENTITY = HttpHeaderValues.IDENTITY;
 
     protected ChannelHandlerContext ctx;
     private EmbeddedChannel decoder;
@@ -81,13 +82,13 @@ public abstract class HttpContentDecoder extends MessageToMessageDecoder<HttpObj
                 final HttpHeaders headers = message.headers();
 
                 // Determine the content encoding.
-                String contentEncoding = headers.get(HttpHeaderNames.CONTENT_ENCODING);
+                AsciiString contentEncoding = headers.getAsciiString(HttpHeaderNames.CONTENT_ENCODING);
                 if (contentEncoding != null) {
                     contentEncoding = contentEncoding.trim();
                 } else {
                     contentEncoding = IDENTITY;
                 }
-                decoder = newContentDecoder(contentEncoding);
+                decoder = newContentDecoder(ctx, contentEncoding);
 
                 if (decoder == null) {
                     if (message instanceof HttpContent) {
@@ -109,7 +110,7 @@ public abstract class HttpContentDecoder extends MessageToMessageDecoder<HttpObj
                 // See https://github.com/netty/netty/issues/5892
 
                 // set new content encoding,
-                CharSequence targetContentEncoding = getTargetContentEncoding(contentEncoding);
+                CharSequence targetContentEncoding = getTargetContentEncoding(ctx, contentEncoding);
                 if (HttpHeaderValues.IDENTITY.contentEquals(targetContentEncoding)) {
                     // Do NOT set the 'Content-Encoding' header if the target encoding is 'identity'
                     // as per: http://tools.ietf.org/html/rfc2616#section-14.11
@@ -200,6 +201,11 @@ public abstract class HttpContentDecoder extends MessageToMessageDecoder<HttpObj
      */
     protected abstract EmbeddedChannel newContentDecoder(String contentEncoding) throws Exception;
 
+    protected EmbeddedChannel newContentDecoder(ChannelHandlerContext ctx, AsciiString contentEncoding)
+            throws Exception {
+        return newContentDecoder(contentEncoding.toString());
+    }
+
     /**
      * Returns the expected content encoding of the decoded content.
      * This getMethod returns {@code "identity"} by default, which is the case for
@@ -210,7 +216,13 @@ public abstract class HttpContentDecoder extends MessageToMessageDecoder<HttpObj
      */
     protected String getTargetContentEncoding(
             @SuppressWarnings("UnusedParameters") String contentEncoding) throws Exception {
-        return IDENTITY;
+        return IDENTITY.toString();
+    }
+
+    protected CharSequence getTargetContentEncoding(
+            @SuppressWarnings("UnusedParameters") ChannelHandlerContext ctx,
+            AsciiString contentEncoding) throws Exception {
+        return getTargetContentEncoding(contentEncoding.toString());
     }
 
     @Override

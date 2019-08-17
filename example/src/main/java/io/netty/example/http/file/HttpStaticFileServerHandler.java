@@ -38,6 +38,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.stream.ChunkedFile;
 import io.netty.util.CharsetUtil;
+import io.netty.util.URLCodec;
 import io.netty.util.internal.SystemPropertyUtil;
 
 import javax.activation.MimetypesFileTypeMap;
@@ -45,7 +46,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -244,7 +244,7 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
     private static String sanitizeUri(String uri) {
         // Decode the path.
         try {
-            uri = URLDecoder.decode(uri, "UTF-8");
+            uri = URLCodec.decode(uri, "UTF-8");
         } catch (UnsupportedEncodingException e) {
             throw new Error(e);
         }

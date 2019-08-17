@@ -1192,6 +1192,19 @@ public abstract class HttpHeaders implements Iterable<Map.Entry<String, String>>
         return get(name.toString());
     }
 
+    public AsciiString getAsciiString(CharSequence name) {
+        CharSequence value = getCharSequence(name);
+        return value instanceof String
+                ? AsciiString.cached(value.toString())
+                : value != null ? AsciiString.of(value) : null;
+    }
+
+    public CharSequence getCharSequence(CharSequence name) {
+        Iterator<? extends CharSequence> it = valueCharSequenceIterator(name);
+        return it != null && it.hasNext() ? it.next() : null;
+    }
+
+
     /**
      * Returns the value of a header with the specified name.  If there are
      * more than one values for the specified name, the first value is returned.
@@ -1201,6 +1214,14 @@ public abstract class HttpHeaders implements Iterable<Map.Entry<String, String>>
      */
     public String get(CharSequence name, String defaultValue) {
         String value = get(name);
+        if (value == null) {
+            return defaultValue;
+        }
+        return value;
+    }
+
+    public CharSequence getCharSequence(CharSequence name, CharSequence defaultValue) {
+        CharSequence value = getCharSequence(name);
         if (value == null) {
             return defaultValue;
         }

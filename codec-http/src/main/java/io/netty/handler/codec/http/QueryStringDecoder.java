@@ -18,7 +18,6 @@ package io.netty.handler.codec.http;
 import io.netty.util.CharsetUtil;
 
 import java.net.URI;
-import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -290,7 +289,7 @@ public class QueryStringDecoder {
      * {@code 0xC3 0xA9}) is encoded as {@code %C3%A9} or {@code %c3%a9}.
      * <p>
      * This is essentially equivalent to calling
-     *   {@link URLDecoder#decode(String, String)}
+     *   {@link io.netty.util.URLCodec#decode(String, String)}
      * except that it's over 2x faster and generates less garbage for the GC.
      * Actually this function doesn't allocate any memory if there's nothing
      * to decode, the argument itself is returned.

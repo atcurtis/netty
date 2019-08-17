@@ -34,13 +34,12 @@ import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedInput;
+import io.netty.util.URLCodec;
 import io.netty.util.internal.PlatformDependent;
 import io.netty.util.internal.StringUtil;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -454,9 +453,9 @@ public class HttpPostRequestEncoder implements ChunkedInput<HttpContent> {
                 Attribute attribute = (Attribute) data;
                 try {
                     // name=value& with encoded name and attribute
-                    String key = encodeAttribute(attribute.getName(), charset);
-                    String value = encodeAttribute(attribute.getValue(), charset);
-                    Attribute newattribute = factory.createAttribute(request, key, value);
+                    CharSequence key = encodeAttribute(attribute.getName(), charset);
+                    CharSequence value = encodeAttribute(attribute.getValue(), charset);
+                    Attribute newattribute = factory.createAttribute(request, key.toString(), value.toString());
                     multipartHttpDatas.add(newattribute);
                     globalBodySize += newattribute.getName().length() + 1 + newattribute.length() + 1;
                 } catch (IOException e) {
@@ -466,9 +465,9 @@ public class HttpPostRequestEncoder implements ChunkedInput<HttpContent> {
                 // since not Multipart, only name=filename => Attribute
                 FileUpload fileUpload = (FileUpload) data;
                 // name=filename& with encoded name and filename
-                String key = encodeAttribute(fileUpload.getName(), charset);
-                String value = encodeAttribute(fileUpload.getFilename(), charset);
-                Attribute newattribute = factory.createAttribute(request, key, value);
+                CharSequence key = encodeAttribute(fileUpload.getName(), charset);
+                CharSequence value = encodeAttribute(fileUpload.getFilename(), charset);
+                Attribute newattribute = factory.createAttribute(request, key.toString(), value.toString());
                 multipartHttpDatas.add(newattribute);
                 globalBodySize += newattribute.getName().length() + 1 + newattribute.length() + 1;
             }
@@ -834,22 +833,18 @@ public class HttpPostRequestEncoder implements ChunkedInput<HttpContent> {
      *             if the encoding is in error
      */
     @SuppressWarnings("unchecked")
-    private String encodeAttribute(String s, Charset charset) throws ErrorDataEncoderException {
+    private CharSequence encodeAttribute(CharSequence s, Charset charset) throws ErrorDataEncoderException {
         if (s == null) {
             return "";
         }
-        try {
-            String encoded = URLEncoder.encode(s, charset.name());
-            if (encoderMode == EncoderMode.RFC3986) {
-                for (Map.Entry<Pattern, String> entry : percentEncodings) {
-                    String replacement = entry.getValue();
-                    encoded = entry.getKey().matcher(encoded).replaceAll(replacement);
-                }
+        CharSequence encoded = URLCodec.encode(s, charset);
+        if (encoderMode == EncoderMode.RFC3986) {
+            for (Map.Entry<Pattern, String> entry : percentEncodings) {
+                String replacement = entry.getValue();
+                encoded = entry.getKey().matcher(encoded).replaceAll(replacement);
             }
-            return encoded;
-        } catch (UnsupportedEncodingException e) {
-            throw new ErrorDataEncoderException(charset.name(), e);
         }
+        return encoded;
     }
 
     /**

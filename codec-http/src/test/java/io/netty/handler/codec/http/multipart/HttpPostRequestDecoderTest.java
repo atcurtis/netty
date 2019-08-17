@@ -31,9 +31,9 @@ import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.util.CharsetUtil;
+import io.netty.util.URLCodec;
 import org.junit.Test;
 
-import java.net.URLEncoder;
 import java.nio.charset.UnsupportedCharsetException;
 import java.util.Arrays;
 
@@ -534,7 +534,7 @@ public class HttpPostRequestDecoderTest {
 
         String encoding = "utf-8";
         String filename = "attached_файл.txt";
-        String filenameEncoded = URLEncoder.encode(filename, encoding);
+        String filenameEncoded = URLCodec.encode(filename, encoding);
 
         final String body = "--" + boundary + "\r\n" +
           "Content-Disposition: form-data; name=\"file\"; filename*=" + encoding + "''" + filenameEncoded + "\r\n" +
@@ -569,7 +569,7 @@ public class HttpPostRequestDecoderTest {
         String encoding = "utf-8";
         String filename = "attached_файл.txt";
         String language = "anything";
-        String filenameEncoded = URLEncoder.encode(filename, encoding);
+        String filenameEncoded = URLCodec.encode(filename, encoding);
 
         final String body = "--" + boundary + "\r\n" +
           "Content-Disposition: form-data; name=\"file\"; filename*=" +

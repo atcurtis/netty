@@ -104,7 +104,9 @@ public class CharSequenceValueConverter implements ValueConverter<CharSequence> 
 
     @Override
     public byte convertToByte(CharSequence value) {
-        return value instanceof String || value.length() != 1 ? Byte.parseByte(value.toString()) : AsciiString.of(value).byteAt(0);
+        return value instanceof String || value.length() != 1
+                ? Byte.parseByte(value.toString())
+                : AsciiString.of(value).byteAt(0);
     }
 
     @Override
