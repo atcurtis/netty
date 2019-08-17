@@ -15,12 +15,15 @@
  */
 package io.netty.handler.codec.http;
 
+import io.netty.util.ReferenceCountUtil;
+import io.netty.util.ReferenceCounted;
+
 import static io.netty.util.internal.ObjectUtil.checkNotNull;
 
 /**
  * The default {@link HttpMessage} implementation.
  */
-public abstract class DefaultHttpMessage extends DefaultHttpObject implements HttpMessage {
+public abstract class DefaultHttpMessage extends DefaultHttpObject implements HttpMessage, ReferenceCounted {
     private static final int HASH_CODE_PRIME = 31;
     private HttpVersion version;
     private final HttpHeaders headers;
@@ -94,5 +97,44 @@ public abstract class DefaultHttpMessage extends DefaultHttpObject implements Ht
         }
         this.version = version;
         return this;
+    }
+
+    @Override
+    public int refCnt() {
+        return ReferenceCountUtil.refCnt(headers);
+    }
+
+    @Override
+    public DefaultHttpMessage retain() {
+        ReferenceCountUtil.retain(headers);
+        return this;
+    }
+
+    @Override
+    public DefaultHttpMessage retain(int increment) {
+        ReferenceCountUtil.retain(headers, increment);
+        return this;
+    }
+
+    @Override
+    public DefaultHttpMessage touch() {
+        ReferenceCountUtil.touch(headers);
+        return this;
+    }
+
+    @Override
+    public DefaultHttpMessage touch(Object hint) {
+        ReferenceCountUtil.touch(headers, hint);
+        return this;
+    }
+
+    @Override
+    public boolean release() {
+        return ReferenceCountUtil.release(headers);
+    }
+
+    @Override
+    public boolean release(int decrement) {
+        return ReferenceCountUtil.release(headers, decrement);
     }
 }

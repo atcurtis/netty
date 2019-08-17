@@ -18,6 +18,7 @@ package io.netty.handler.codec.http;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.DefaultHeaders.NameValidator;
+import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.StringUtil;
 
 import java.util.Map.Entry;
@@ -68,24 +69,28 @@ public class DefaultLastHttpContent extends DefaultHttpContent implements LastHt
     @Override
     public LastHttpContent retain(int increment) {
         super.retain(increment);
+        ReferenceCountUtil.retain(trailingHeaders, increment);
         return this;
     }
 
     @Override
     public LastHttpContent retain() {
         super.retain();
+        ReferenceCountUtil.retain(trailingHeaders);
         return this;
     }
 
     @Override
     public LastHttpContent touch() {
         super.touch();
+        ReferenceCountUtil.touch(trailingHeaders);
         return this;
     }
 
     @Override
     public LastHttpContent touch(Object hint) {
         super.touch(hint);
+        ReferenceCountUtil.touch(trailingHeaders, hint);
         return this;
     }
 

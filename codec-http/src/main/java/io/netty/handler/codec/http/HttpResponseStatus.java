@@ -19,6 +19,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.util.AsciiString;
 import io.netty.util.CharsetUtil;
+import io.netty.util.internal.InternalThreadLocalMap;
 
 import static io.netty.handler.codec.http.HttpConstants.SP;
 import static io.netty.util.ByteProcessor.FIND_ASCII_SPACE;
@@ -322,6 +323,9 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
             newStatus(511, "Network Authentication Required");
 
     private static HttpResponseStatus newStatus(int statusCode, String reasonPhrase) {
+        return newStatus(statusCode, AsciiString.cached(reasonPhrase));
+    }
+    private static HttpResponseStatus newStatus(int statusCode, AsciiString reasonPhrase) {
         return new HttpResponseStatus(statusCode, reasonPhrase, true);
     }
 
@@ -462,6 +466,9 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
      * @return the {@link HttpResponseStatus} represented by the specified {@code code} and {@code reasonPhrase}.
      */
     public static HttpResponseStatus valueOf(int code, String reasonPhrase) {
+        return valueOf(code, (CharSequence) reasonPhrase);
+    }
+    public static HttpResponseStatus valueOf(int code, CharSequence reasonPhrase) {
         HttpResponseStatus responseStatus = valueOf0(code);
         return responseStatus != null && responseStatus.reasonPhrase().contentEquals(reasonPhrase) ? responseStatus :
                 new HttpResponseStatus(code, reasonPhrase);
@@ -521,8 +528,8 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
     private final AsciiString codeAsText;
     private HttpStatusClass codeClass;
 
-    private final String reasonPhrase;
-    private final byte[] bytes;
+    private final CharSequence reasonPhrase;
+    private final AsciiString bytes;
 
     /**
      * Creates a new instance with the specified {@code code} and the auto-generated default reason phrase.
@@ -535,10 +542,14 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
      * Creates a new instance with the specified {@code code} and its {@code reasonPhrase}.
      */
     public HttpResponseStatus(int code, String reasonPhrase) {
+        this(code, (CharSequence) reasonPhrase);
+    }
+
+    public HttpResponseStatus(int code, CharSequence reasonPhrase) {
         this(code, reasonPhrase, false);
     }
 
-    private HttpResponseStatus(int code, String reasonPhrase, boolean bytes) {
+    private HttpResponseStatus(int code, CharSequence reasonPhrase, boolean bytes) {
         checkPositiveOrZero(code, "code");
 
         if (reasonPhrase == null) {
@@ -557,13 +568,15 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
         }
 
         this.code = code;
-        String codeString = Integer.toString(code);
-        codeAsText = new AsciiString(codeString);
         this.reasonPhrase = reasonPhrase;
         if (bytes) {
-            this.bytes = (codeString + ' ' + reasonPhrase).getBytes(CharsetUtil.US_ASCII);
+            StringBuilder stringBuilder = InternalThreadLocalMap.get().stringBuilder();
+            stringBuilder.append(code);
+            codeAsText = new AsciiString(stringBuilder);
+            this.bytes = new AsciiString(stringBuilder.append(' ').append(reasonPhrase));
         } else {
             this.bytes = null;
+            codeAsText = AsciiString.valueOf(code);
         }
     }
 
@@ -585,6 +598,13 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
      * Returns the reason phrase of this {@link HttpResponseStatus}.
      */
     public String reasonPhrase() {
+        return reasonPhraseCharSequence().toString();
+    }
+
+    /**
+     * Returns the reason phrase of this {@link HttpResponseStatus}.
+     */
+    public CharSequence reasonPhraseCharSequence() {
         return reasonPhrase;
     }
 
@@ -628,7 +648,12 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
 
     @Override
     public String toString() {
-        return new StringBuilder(reasonPhrase.length() + 4)
+        if (bytes != null) {
+            return bytes.toString();
+        }
+        StringBuilder stringBuilder = InternalThreadLocalMap.get().stringBuilder();
+        stringBuilder.ensureCapacity(reasonPhrase.length() + 4);
+        return stringBuilder
             .append(codeAsText)
             .append(' ')
             .append(reasonPhrase)
@@ -641,7 +666,7 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
             buf.writeByte(SP);
             buf.writeCharSequence(reasonPhrase, CharsetUtil.US_ASCII);
         } else {
-            buf.writeBytes(bytes);
+            ByteBufUtil.copy(bytes, buf);
         }
     }
 }

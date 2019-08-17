@@ -74,37 +74,41 @@ public class DefaultFullHttpRequest extends DefaultHttpRequest implements FullHt
     }
 
     @Override
-    public FullHttpRequest retain() {
+    public DefaultFullHttpRequest retain() {
         content.retain();
+        super.retain();
         return this;
     }
 
     @Override
-    public FullHttpRequest retain(int increment) {
+    public DefaultFullHttpRequest retain(int increment) {
         content.retain(increment);
+        super.retain(increment);
         return this;
     }
 
     @Override
-    public FullHttpRequest touch() {
+    public DefaultFullHttpRequest touch() {
         content.touch();
+        super.touch();
         return this;
     }
 
     @Override
-    public FullHttpRequest touch(Object hint) {
+    public DefaultFullHttpRequest touch(Object hint) {
         content.touch(hint);
+        super.touch(hint);
         return this;
     }
 
     @Override
     public boolean release() {
-        return content.release();
+        return content.release() | super.release();
     }
 
     @Override
     public boolean release(int decrement) {
-        return content.release(decrement);
+        return content.release(decrement) | super.release(decrement);
     }
 
     @Override

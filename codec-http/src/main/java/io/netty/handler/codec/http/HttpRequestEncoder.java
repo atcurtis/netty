@@ -17,6 +17,7 @@ package io.netty.handler.codec.http;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
+import io.netty.util.AsciiString;
 import io.netty.util.CharsetUtil;
 
 import static io.netty.handler.codec.http.HttpConstants.SP;
@@ -27,6 +28,7 @@ import static io.netty.handler.codec.http.HttpConstants.SP;
  */
 public class HttpRequestEncoder extends HttpObjectEncoder<HttpRequest> {
     private static final char SLASH = '/';
+    private static final String SLASH_STRING = String.valueOf(SLASH);
     private static final char QUESTION_MARK = '?';
     private static final int SLASH_AND_SPACE_SHORT = (SLASH << 8) | SP;
     private static final int SPACE_SLASH_AND_SPACE_MEDIUM = (SP << 16) | SLASH_AND_SPACE_SHORT;
@@ -40,7 +42,9 @@ public class HttpRequestEncoder extends HttpObjectEncoder<HttpRequest> {
     protected void encodeInitialLine(ByteBuf buf, HttpRequest request) throws Exception {
         ByteBufUtil.copy(request.method().asciiName(), buf);
 
-        String uri = request.uri();
+        AsciiString uri = request instanceof HttpAsciiRequest
+                ? ((HttpAsciiRequest) request).asciiUri()
+                : AsciiString.cached(request.uri());
 
         if (uri.isEmpty()) {
             // Add " / " as absolute path if uri is not present.
@@ -56,11 +60,11 @@ public class HttpRequestEncoder extends HttpObjectEncoder<HttpRequest> {
                 // See https://github.com/netty/netty/issues/2732
                 int index = uri.indexOf(QUESTION_MARK, start);
                 if (index == -1) {
-                    if (uri.lastIndexOf(SLASH) < start) {
+                    if (uri.lastIndexOf(SLASH_STRING) < start) {
                         needSlash = true;
                     }
                 } else {
-                    if (uri.lastIndexOf(SLASH, index) < start) {
+                    if (uri.lastIndexOf(SLASH_STRING, index) < start) {
                         uriCharSequence = new StringBuilder(uri).insert(index, SLASH);
                     }
                 }

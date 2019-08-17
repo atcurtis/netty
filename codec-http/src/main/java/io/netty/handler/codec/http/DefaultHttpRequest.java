@@ -15,15 +15,17 @@
  */
 package io.netty.handler.codec.http;
 
+import io.netty.util.AsciiString;
+
 import static io.netty.util.internal.ObjectUtil.checkNotNull;
 
 /**
  * The default {@link HttpRequest} implementation.
  */
-public class DefaultHttpRequest extends DefaultHttpMessage implements HttpRequest {
+public class DefaultHttpRequest extends DefaultHttpMessage implements HttpAsciiRequest {
     private static final int HASH_CODE_PRIME = 31;
     private HttpMethod method;
-    private String uri;
+    private AsciiString uri;
 
     /**
      * Creates a new instance.
@@ -45,6 +47,18 @@ public class DefaultHttpRequest extends DefaultHttpMessage implements HttpReques
      * @param validateHeaders   validate the header names and values when adding them to the {@link HttpHeaders}
      */
     public DefaultHttpRequest(HttpVersion httpVersion, HttpMethod method, String uri, boolean validateHeaders) {
+        this(httpVersion, method, AsciiString.cached(checkNotNull(uri, "uri")), validateHeaders);
+    }
+
+    /**
+     * Creates a new instance.
+     *
+     * @param httpVersion       the HTTP version of the request
+     * @param method            the HTTP method of the request
+     * @param uri               the URI or path of the request
+     * @param validateHeaders   validate the header names and values when adding them to the {@link HttpHeaders}
+     */
+    public DefaultHttpRequest(HttpVersion httpVersion, HttpMethod method, AsciiString uri, boolean validateHeaders) {
         super(httpVersion, validateHeaders, false);
         this.method = checkNotNull(method, "method");
         this.uri = checkNotNull(uri, "uri");
@@ -59,6 +73,18 @@ public class DefaultHttpRequest extends DefaultHttpMessage implements HttpReques
      * @param headers           the Headers for this Request
      */
     public DefaultHttpRequest(HttpVersion httpVersion, HttpMethod method, String uri, HttpHeaders headers) {
+        this(httpVersion, method, AsciiString.cached(checkNotNull(uri, "uri")), headers);
+    }
+
+    /**
+     * Creates a new instance.
+     *
+     * @param httpVersion       the HTTP version of the request
+     * @param method            the HTTP method of the request
+     * @param uri               the URI or path of the request
+     * @param headers           the Headers for this Request
+     */
+    public DefaultHttpRequest(HttpVersion httpVersion, HttpMethod method, AsciiString uri, HttpHeaders headers) {
         super(httpVersion, headers);
         this.method = checkNotNull(method, "method");
         this.uri = checkNotNull(uri, "uri");
@@ -83,6 +109,11 @@ public class DefaultHttpRequest extends DefaultHttpMessage implements HttpReques
 
     @Override
     public String uri() {
+        return uri.toString();
+    }
+
+    @Override
+    public AsciiString asciiUri() {
         return uri;
     }
 
@@ -97,6 +128,14 @@ public class DefaultHttpRequest extends DefaultHttpMessage implements HttpReques
 
     @Override
     public HttpRequest setUri(String uri) {
+        if (uri == null) {
+            throw new NullPointerException("uri");
+        }
+        return setUri(AsciiString.cached(uri));
+    }
+
+    @Override
+    public DefaultHttpRequest setUri(AsciiString uri) {
         if (uri == null) {
             throw new NullPointerException("uri");
         }

@@ -87,37 +87,41 @@ public class DefaultFullHttpResponse extends DefaultHttpResponse implements Full
     }
 
     @Override
-    public FullHttpResponse retain() {
+    public DefaultFullHttpResponse retain() {
         content.retain();
+        super.retain();
         return this;
     }
 
     @Override
-    public FullHttpResponse retain(int increment) {
+    public DefaultFullHttpResponse retain(int increment) {
         content.retain(increment);
+        super.retain(increment);
         return this;
     }
 
     @Override
-    public FullHttpResponse touch() {
+    public DefaultFullHttpResponse touch() {
         content.touch();
+        super.touch();
         return this;
     }
 
     @Override
-    public FullHttpResponse touch(Object hint) {
+    public DefaultFullHttpResponse touch(Object hint) {
         content.touch(hint);
+        super.touch(hint);
         return this;
     }
 
     @Override
     public boolean release() {
-        return content.release();
+        return content.release() | super.release();
     }
 
     @Override
     public boolean release(int decrement) {
-        return content.release(decrement);
+        return content.release(decrement) | super.release(decrement);
     }
 
     @Override
