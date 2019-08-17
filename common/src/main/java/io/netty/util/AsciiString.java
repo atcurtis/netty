@@ -45,6 +45,8 @@ import static io.netty.util.internal.ObjectUtil.checkNotNull;
  */
 public final class AsciiString implements CharSequence, Comparable<CharSequence> {
     public static final AsciiString EMPTY_STRING = cached("");
+    public static final AsciiString TRUE_ASCII = cached(Boolean.TRUE.toString());
+    public static final AsciiString FALSE_ASCII = cached(Boolean.FALSE.toString());
     private static final char MAX_CHAR_VALUE = 255;
 
     public static final int INDEX_NOT_FOUND = -1;
@@ -247,6 +249,30 @@ public final class AsciiString implements CharSequence, Comparable<CharSequence>
         this.value = Arrays.copyOfRange(nativeBuffer.array(), offset, offset + nativeBuffer.position());
         this.offset = 0;
         this.length = this.value.length;
+    }
+
+    public static AsciiString valueOf(boolean value) {
+        return value ? TRUE_ASCII : FALSE_ASCII;
+    }
+
+    public static AsciiString valueOf(char value) {
+        return new AsciiString(InternalThreadLocalMap.get().stringBuilder().append(value));
+    }
+
+    public static AsciiString valueOf(int value) {
+        return new AsciiString(InternalThreadLocalMap.get().stringBuilder().append(value));
+    }
+
+    public static AsciiString valueOf(long value) {
+        return new AsciiString(InternalThreadLocalMap.get().stringBuilder().append(value));
+    }
+
+    public static AsciiString valueOf(double value) {
+        return new AsciiString(InternalThreadLocalMap.get().stringBuilder().append(value));
+    }
+
+    public static AsciiString valueOf(float value) {
+        return new AsciiString(InternalThreadLocalMap.get().stringBuilder().append(value));
     }
 
     /**
@@ -1179,6 +1205,10 @@ public final class AsciiString implements CharSequence, Comparable<CharSequence>
      * Translates the [{@code start}, {@code end}) range of this byte string to a {@link String}.
      */
     public String toString(int start, int end) {
+        return toString(start, end, CharsetUtil.US_ASCII);
+    }
+
+    public String toString(int start, int end, Charset charset) {
         int length = end - start;
         if (length == 0) {
             return "";
@@ -1190,7 +1220,9 @@ public final class AsciiString implements CharSequence, Comparable<CharSequence>
         }
 
         @SuppressWarnings("deprecation")
-        final String str = new String(value, 0, start + offset, length);
+        final String str = CharsetUtil.US_ASCII == charset
+                ? new String(value, 0, start + offset, length)
+                : new String(value, start + offset, length, charset);
         return str;
     }
 

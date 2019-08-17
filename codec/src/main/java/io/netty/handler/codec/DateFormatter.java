@@ -115,6 +115,15 @@ public final class DateFormatter {
     }
 
     /**
+     * Format a {@link Date} into RFC1123 format
+     * @param date the date to format
+     * @return a RFC1123 string
+     */
+    public static AsciiString formatAscii(Date date) {
+        return formatter().format1(checkNotNull(date, "date"));
+    }
+
+    /**
      * Append a {@link Date} to a {@link StringBuilder} into RFC1123 format
      * @param date the date to format
      * @param sb the StringBuilder
@@ -423,6 +432,11 @@ public final class DateFormatter {
     private String format0(Date date) {
         append0(date, sb);
         return sb.toString();
+    }
+
+    private AsciiString format1(Date date) {
+        append0(date, sb);
+        return new AsciiString(sb);
     }
 
     private StringBuilder append0(Date date, StringBuilder sb) {

@@ -25,29 +25,56 @@ import java.util.Date;
  */
 public class CharSequenceValueConverter implements ValueConverter<CharSequence> {
     public static final CharSequenceValueConverter INSTANCE = new CharSequenceValueConverter();
-    private static final AsciiString TRUE_ASCII = new AsciiString("true");
+    private static final AsciiString TRUE_ASCII = AsciiString.TRUE_ASCII;
 
     @Override
     public CharSequence convertObject(Object value) {
         if (value instanceof CharSequence) {
             return (CharSequence) value;
         }
+        if (value instanceof Boolean) {
+            return convertBoolean((Boolean) value);
+        }
+        if (value instanceof Integer) {
+            return convertInt((Integer) value);
+        }
+        if (value instanceof Long) {
+            return convertLong((Long) value);
+        }
+        if (value instanceof Double) {
+            return convertDouble((Double) value);
+        }
+        if (value instanceof Float) {
+            return convertFloat((Float) value);
+        }
+        if (value instanceof Byte) {
+            return convertByte((Byte) value);
+        }
+        if (value instanceof Short) {
+            return convertShort((Short) value);
+        }
+        if (value instanceof Character) {
+            return convertChar((Character) value);
+        }
+        if (value instanceof Date) {
+            return DateFormatter.formatAscii((Date) value);
+        }
         return value.toString();
     }
 
     @Override
     public CharSequence convertInt(int value) {
-        return String.valueOf(value);
+        return AsciiString.valueOf(value);
     }
 
     @Override
     public CharSequence convertLong(long value) {
-        return String.valueOf(value);
+        return AsciiString.valueOf(value);
     }
 
     @Override
     public CharSequence convertDouble(double value) {
-        return String.valueOf(value);
+        return AsciiString.valueOf(value);
     }
 
     @Override
@@ -57,30 +84,27 @@ public class CharSequenceValueConverter implements ValueConverter<CharSequence> 
 
     @Override
     public CharSequence convertBoolean(boolean value) {
-        return String.valueOf(value);
+        return AsciiString.valueOf(value);
     }
 
     @Override
     public CharSequence convertFloat(float value) {
-        return String.valueOf(value);
+        return AsciiString.valueOf(value);
     }
 
     @Override
     public boolean convertToBoolean(CharSequence value) {
-        return AsciiString.contentEqualsIgnoreCase(value, TRUE_ASCII);
+        return TRUE_ASCII.contentEqualsIgnoreCase(value);
     }
 
     @Override
     public CharSequence convertByte(byte value) {
-        return String.valueOf(value);
+        return AsciiString.valueOf(value);
     }
 
     @Override
     public byte convertToByte(CharSequence value) {
-        if (value instanceof AsciiString && value.length() == 1) {
-            return ((AsciiString) value).byteAt(0);
-        }
-        return Byte.parseByte(value.toString());
+        return value instanceof String || value.length() != 1 ? Byte.parseByte(value.toString()) : AsciiString.of(value).byteAt(0);
     }
 
     @Override
@@ -90,36 +114,27 @@ public class CharSequenceValueConverter implements ValueConverter<CharSequence> 
 
     @Override
     public CharSequence convertShort(short value) {
-        return String.valueOf(value);
+        return AsciiString.valueOf(value);
     }
 
     @Override
     public short convertToShort(CharSequence value) {
-        if (value instanceof AsciiString) {
-            return ((AsciiString) value).parseShort();
-        }
-        return Short.parseShort(value.toString());
+        return value instanceof String ? Short.parseShort(value.toString()) : AsciiString.of(value).parseShort();
     }
 
     @Override
     public int convertToInt(CharSequence value) {
-        if (value instanceof AsciiString) {
-            return ((AsciiString) value).parseInt();
-        }
-        return Integer.parseInt(value.toString());
+        return value instanceof String ? Integer.parseInt(value.toString()) : AsciiString.of(value).parseInt();
     }
 
     @Override
     public long convertToLong(CharSequence value) {
-        if (value instanceof AsciiString) {
-            return ((AsciiString) value).parseLong();
-        }
-        return Long.parseLong(value.toString());
+        return value instanceof String ? Long.parseLong(value.toString()) : AsciiString.of(value).parseLong();
     }
 
     @Override
     public CharSequence convertTimeMillis(long value) {
-        return DateFormatter.format(new Date(value));
+        return DateFormatter.formatAscii(new Date(value));
     }
 
     @Override
@@ -134,17 +149,11 @@ public class CharSequenceValueConverter implements ValueConverter<CharSequence> 
 
     @Override
     public float convertToFloat(CharSequence value) {
-        if (value instanceof AsciiString) {
-            return ((AsciiString) value).parseFloat();
-        }
-        return Float.parseFloat(value.toString());
+        return value instanceof String ? Float.parseFloat(value.toString()) : AsciiString.of(value).parseFloat();
     }
 
     @Override
     public double convertToDouble(CharSequence value) {
-        if (value instanceof AsciiString) {
-            return ((AsciiString) value).parseDouble();
-        }
-        return Double.parseDouble(value.toString());
+        return value instanceof String ? Double.parseDouble(value.toString()) : AsciiString.of(value).parseDouble();
     }
 }
