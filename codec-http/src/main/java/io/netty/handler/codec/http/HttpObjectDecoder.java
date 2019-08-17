@@ -104,7 +104,7 @@ import java.util.List;
  * implement all abstract methods properly.
  */
 public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
-    private static final String EMPTY_VALUE = "";
+    private static final String EMPTY_VALUE = AsciiString.EMPTY_STRING.toString();
 
     private final int maxChunkSize;
     private final boolean chunkedSupported;
@@ -608,7 +608,8 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
 
         // Add the last header.
         if (name != null) {
-            headers.add(new AsciiString(name), value instanceof AppendableCharSequence ? value : new AsciiString(value));
+            headers.add(new AsciiString(name), value instanceof AppendableCharSequence
+                    ? value : new AsciiString(value));
         }
         // reset name and value fields
         name = null;
@@ -671,7 +672,7 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
                         !HttpHeaderNames.TRANSFER_ENCODING.contentEqualsIgnoreCase(headerName) &&
                         !HttpHeaderNames.TRAILER.contentEqualsIgnoreCase(headerName)) {
                     name = new AsciiString(headerName);
-                    trailer.trailingHeaders().add(name, value);
+                    trailer.trailingHeaders().add(name, new AsciiString(value));
                 }
                 lastHeader = name;
                 // reset name and value fields
@@ -754,13 +755,15 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         colonEnd = sb.forEachByte(nameEnd, end - nameEnd, ByteProcessor.FIND_NON_COLON_OR_WHITESPACE);
         colonEnd = colonEnd == -1 ? end : colonEnd;
 
-        name = ByteBufUtil.getAscii(sb, nameStart, nameEnd - nameStart);
+        ByteBuf name = sb.slice(nameStart, nameEnd - nameStart);
+        this.name = ByteBufUtil.getAsciiCharSequence(name);
         valueStart = findNonWhitespace(sb, colonEnd);
         if (valueStart == end) {
             value = EMPTY_VALUE;
         } else {
             valueEnd = findEndOfString(sb);
-            value = ByteBufUtil.getAscii(sb, valueStart, valueEnd - valueStart);
+            ByteBuf value = sb.slice(valueStart, valueEnd - valueStart);
+            this.value = ByteBufUtil.getAsciiCharSequence(value);
         }
     }
 

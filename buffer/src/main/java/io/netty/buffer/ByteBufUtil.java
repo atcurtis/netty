@@ -1489,5 +1489,46 @@ public final class ByteBufUtil {
         } while (outLen > 0);
     }
 
+    public static CharSequence getAsciiCharSequence(final ByteBuf buf) {
+        return new CharSequence() {
+
+            final int length = buf.readableBytes();
+            final int offset = buf.readerIndex();
+
+            @Override
+            public int length() {
+                return length;
+            }
+
+            @Override
+            public char charAt(int index) {
+                if (index < 0 || index >= length) {
+                    throw new IndexOutOfBoundsException("index: " + index + " must be in the range [0," + length + ")");
+                }
+                return (char) buf.getUnsignedByte(index + offset);
+            }
+
+            @Override
+            public CharSequence subSequence(int start, int end) {
+                if (isOutOfBounds(start, end - start, length())) {
+                    throw new IndexOutOfBoundsException("expected: 0 <= start(" + start + ") <= end (" + end + ") <= length("
+                            + length() + ')');
+                }
+                if (start == 0 && end == length) {
+                    return this;
+                }
+                if (start == end) {
+                    return "";
+                }
+                return getAsciiCharSequence(buf.slice(offset + start, end - start));
+            }
+
+            @Override
+            public String toString() {
+                return getAscii(buf, offset, length).toString();
+            }
+        };
+    }
+
     private ByteBufUtil() { }
 }
