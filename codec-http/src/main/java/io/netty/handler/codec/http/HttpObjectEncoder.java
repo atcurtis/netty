@@ -185,6 +185,13 @@ public abstract class HttpObjectEncoder<H extends HttpMessage> extends MessageTo
      * Encode the {@link HttpHeaders} into a {@link ByteBuf}.
      */
     protected void encodeHeaders(HttpHeaders headers, ByteBuf buf) {
+        if (headers instanceof HttpContent) {
+            ByteBuf headerBytes = ((HttpContent) headers).content();
+            if (headerBytes.isReadable()) {
+                buf.writeBytes(headerBytes, headerBytes.readerIndex(), headerBytes.readableBytes());
+                return;
+            }
+        }
         Iterator<Entry<CharSequence, CharSequence>> iter = headers.iteratorCharSequence();
         while (iter.hasNext()) {
             Entry<CharSequence, CharSequence> header = iter.next();

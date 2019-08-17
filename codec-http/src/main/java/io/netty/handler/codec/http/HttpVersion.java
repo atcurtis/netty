@@ -18,7 +18,11 @@ package io.netty.handler.codec.http;
 import static io.netty.util.internal.ObjectUtil.checkPositiveOrZero;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.util.AsciiString;
 import io.netty.util.CharsetUtil;
+import io.netty.util.internal.AppendableCharSequence;
+import io.netty.util.internal.InternalThreadLocalMap;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,18 +37,19 @@ public class HttpVersion implements Comparable<HttpVersion> {
     private static final Pattern VERSION_PATTERN =
         Pattern.compile("(\\S+)/(\\d+)\\.(\\d+)");
 
-    private static final String HTTP_1_0_STRING = "HTTP/1.0";
-    private static final String HTTP_1_1_STRING = "HTTP/1.1";
+    private static final AsciiString HTTP_1_0_STRING = AsciiString.cached("HTTP/1.0");
+    private static final AsciiString HTTP_1_1_STRING = AsciiString.cached("HTTP/1.1");
+    private static final AsciiString HTTP_STRING = AsciiString.cached("HTTP");
 
     /**
      * HTTP/1.0
      */
-    public static final HttpVersion HTTP_1_0 = new HttpVersion("HTTP", 1, 0, false, true);
+    public static final HttpVersion HTTP_1_0 = new HttpVersion(HTTP_STRING, 1, 0, false, true);
 
     /**
      * HTTP/1.1
      */
-    public static final HttpVersion HTTP_1_1 = new HttpVersion("HTTP", 1, 1, true, true);
+    public static final HttpVersion HTTP_1_1 = new HttpVersion(HTTP_STRING, 1, 1, true, true);
 
     /**
      * Returns an existing or new {@link HttpVersion} instance which matches to
@@ -55,6 +60,12 @@ public class HttpVersion implements Comparable<HttpVersion> {
      * returned.
      */
     public static HttpVersion valueOf(String text) {
+        if (text == null) {
+            throw new NullPointerException("text");
+        }
+      return valueOf(AsciiString.cached(text));
+    }
+    public static HttpVersion valueOf(AsciiString text) {
         if (text == null) {
             throw new NullPointerException("text");
         }
@@ -75,25 +86,25 @@ public class HttpVersion implements Comparable<HttpVersion> {
         //
         HttpVersion version = version0(text);
         if (version == null) {
-            version = new HttpVersion(text, true);
+            version = new HttpVersion(text, true, false);
         }
         return version;
     }
 
-    private static HttpVersion version0(String text) {
-        if (HTTP_1_1_STRING.equals(text)) {
+    private static HttpVersion version0(AsciiString text) {
+        if (HTTP_1_1_STRING.contentEqualsIgnoreCase(text)) {
             return HTTP_1_1;
         }
-        if (HTTP_1_0_STRING.equals(text)) {
+        if (HTTP_1_0_STRING.contentEqualsIgnoreCase(text)) {
             return HTTP_1_0;
         }
         return null;
     }
 
-    private final String protocolName;
+    private final AsciiString protocolName;
     private final int majorVersion;
     private final int minorVersion;
-    private final String text;
+    private final AsciiString text;
     private final boolean keepAliveDefault;
     private final byte[] bytes;
 
@@ -109,6 +120,9 @@ public class HttpVersion implements Comparable<HttpVersion> {
      *        the {@code "Connection"} header is set to {@code "close"} explicitly.
      */
     public HttpVersion(String text, boolean keepAliveDefault) {
+        this(AsciiString.cached(text), keepAliveDefault, false);
+    }
+    public HttpVersion(AsciiString text, boolean keepAliveDefault, boolean copy) {
         if (text == null) {
             throw new NullPointerException("text");
         }
@@ -123,10 +137,11 @@ public class HttpVersion implements Comparable<HttpVersion> {
             throw new IllegalArgumentException("invalid version format: " + text);
         }
 
-        protocolName = m.group(1);
-        majorVersion = Integer.parseInt(m.group(2));
-        minorVersion = Integer.parseInt(m.group(3));
-        this.text = protocolName + '/' + majorVersion + '.' + minorVersion;
+        protocolName = text.subSequence(m.start(1), m.end(1), copy);
+        majorVersion = text.subSequence(m.start(2), m.end(2), false).parseInt();
+        minorVersion = text.subSequence(m.start(3), m.end(3), false).parseInt();
+        StringBuilder stringBuilder = InternalThreadLocalMap.get().stringBuilder().append(protocolName).append('/').append(majorVersion).append('/').append(minorVersion);
+        this.text = copy || !text.contentEquals(stringBuilder) ? AsciiString.cached(stringBuilder.toString()) : text;
         this.keepAliveDefault = keepAliveDefault;
         bytes = null;
     }
@@ -145,11 +160,11 @@ public class HttpVersion implements Comparable<HttpVersion> {
     public HttpVersion(
             String protocolName, int majorVersion, int minorVersion,
             boolean keepAliveDefault) {
-        this(protocolName, majorVersion, minorVersion, keepAliveDefault, false);
+        this(AsciiString.cached(protocolName), majorVersion, minorVersion, keepAliveDefault, false);
     }
 
     private HttpVersion(
-            String protocolName, int majorVersion, int minorVersion,
+            AsciiString protocolName, int majorVersion, int minorVersion,
             boolean keepAliveDefault, boolean bytes) {
         if (protocolName == null) {
             throw new NullPointerException("protocolName");
@@ -173,11 +188,11 @@ public class HttpVersion implements Comparable<HttpVersion> {
         this.protocolName = protocolName;
         this.majorVersion = majorVersion;
         this.minorVersion = minorVersion;
-        text = protocolName + '/' + majorVersion + '.' + minorVersion;
+        text = AsciiString.cached(protocolName.toString() + '/' + majorVersion + '.' + minorVersion);
         this.keepAliveDefault = keepAliveDefault;
 
         if (bytes) {
-            this.bytes = text.getBytes(CharsetUtil.US_ASCII);
+            this.bytes = text.toByteArray();
         } else {
             this.bytes = null;
         }
@@ -187,7 +202,7 @@ public class HttpVersion implements Comparable<HttpVersion> {
      * Returns the name of the protocol such as {@code "HTTP"} in {@code "HTTP/1.0"}.
      */
     public String protocolName() {
-        return protocolName;
+        return protocolName.toString();
     }
 
     /**
@@ -208,7 +223,7 @@ public class HttpVersion implements Comparable<HttpVersion> {
      * Returns the full protocol version text such as {@code "HTTP/1.0"}.
      */
     public String text() {
-        return text;
+        return text.toString();
     }
 
     /**
@@ -262,7 +277,7 @@ public class HttpVersion implements Comparable<HttpVersion> {
 
     void encode(ByteBuf buf) {
         if (bytes == null) {
-            buf.writeCharSequence(text, CharsetUtil.US_ASCII);
+            ByteBufUtil.copy(text, buf);
         } else {
             buf.writeBytes(bytes);
         }

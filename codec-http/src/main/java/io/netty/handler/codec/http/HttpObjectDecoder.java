@@ -18,6 +18,7 @@ package io.netty.handler.codec.http;
 import static io.netty.util.internal.ObjectUtil.checkPositive;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
@@ -25,6 +26,7 @@ import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.PrematureChannelClosureException;
 import io.netty.handler.codec.TooLongFrameException;
+import io.netty.util.AsciiString;
 import io.netty.util.ByteProcessor;
 import io.netty.util.internal.AppendableCharSequence;
 
@@ -174,9 +176,8 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         checkPositive(maxHeaderSize, "maxHeaderSize");
         checkPositive(maxChunkSize, "maxChunkSize");
 
-        AppendableCharSequence seq = new AppendableCharSequence(initialBufferSize);
-        lineParser = new LineParser(seq, maxInitialLineLength);
-        headerParser = new HeaderParser(seq, maxHeaderSize);
+        lineParser = new LineParser(maxInitialLineLength);
+        headerParser = new HeaderParser(maxHeaderSize);
         this.maxChunkSize = maxChunkSize;
         this.chunkedSupported = chunkedSupported;
         this.validateHeaders = validateHeaders;
@@ -196,11 +197,11 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
             currentState = State.READ_INITIAL;
         }
         case READ_INITIAL: try {
-            AppendableCharSequence line = lineParser.parse(buffer);
+            ByteBuf line = lineParser.parse(buffer);
             if (line == null) {
                 return;
             }
-            String[] initialLine = splitInitialLine(line);
+            ByteBuf[] initialLine = splitInitialLine(line);
             if (initialLine.length < 3) {
                 // Invalid initial line - ignore.
                 currentState = State.SKIP_CONTROL_CHARS;
@@ -310,11 +311,11 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
          * read chunk, read and ignore the CRLF and repeat until 0
          */
         case READ_CHUNK_SIZE: try {
-            AppendableCharSequence line = lineParser.parse(buffer);
+            ByteBuf line = lineParser.parse(buffer);
             if (line == null) {
                 return;
             }
-            int chunkSize = getChunkSize(line.toString());
+            int chunkSize = getChunkSize(line);
             this.chunkSize = chunkSize;
             if (chunkSize == 0) {
                 currentState = State.READ_CHUNK_FOOTER;
@@ -569,36 +570,45 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         final HttpMessage message = this.message;
         final HttpHeaders headers = message.headers();
 
-        AppendableCharSequence line = headerParser.parse(buffer);
+        ByteBuf line = headerParser.parse(buffer);
         if (line == null) {
             return null;
         }
-        if (line.length() > 0) {
+        if (line.isReadable()) {
             do {
-                char firstChar = line.charAt(0);
+                char firstChar = (char) line.getUnsignedByte(line.readerIndex());
                 if (name != null && (firstChar == ' ' || firstChar == '\t')) {
                     //please do not make one line from below code
                     //as it breaks +XX:OptimizeStringConcat optimization
-                    String trimmedLine = line.toString().trim();
-                    String valueStr = String.valueOf(value);
-                    value = valueStr + ' ' + trimmedLine;
+                    AsciiString trimmedLine = ByteBufUtil.getAscii(line).trim();
+                    AppendableCharSequence appendable;
+                    if (value instanceof AppendableCharSequence) {
+                        appendable = ((AppendableCharSequence) value).append(' ').append(trimmedLine);
+                    } else {
+                        appendable = new AppendableCharSequence(512).append(value).append(' ').append(trimmedLine);
+                    }
+                    value = appendable;
                 } else {
                     if (name != null) {
-                        headers.add(name, value);
+                        headers.add(new AsciiString(name),
+                                value instanceof AppendableCharSequence ? value : new AsciiString(value));
                     }
                     splitHeader(line);
                 }
 
                 line = headerParser.parse(buffer);
                 if (line == null) {
+                    name = name != null ? new AsciiString(name) : null;
+                    value = value instanceof AppendableCharSequence ? value : value != null
+                            ? new AppendableCharSequence(value.length()).append(value) : null;
                     return null;
                 }
-            } while (line.length() > 0);
+            } while (line.isReadable());
         }
 
         // Add the last header.
         if (name != null) {
-            headers.add(name, value);
+            headers.add(new AsciiString(name), value instanceof AppendableCharSequence ? value : new AsciiString(value));
         }
         // reset name and value fields
         name = null;
@@ -627,12 +637,12 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
     }
 
     private LastHttpContent readTrailingHeaders(ByteBuf buffer) {
-        AppendableCharSequence line = headerParser.parse(buffer);
+        ByteBuf line = headerParser.parse(buffer);
         if (line == null) {
             return null;
         }
         LastHttpContent trailer = this.trailer;
-        if (line.length() == 0 && trailer == null) {
+        if (!line.isReadable() && trailer == null) {
             // We have received the empty line which signals the trailer is complete and did not parse any trailers
             // before. Just return an empty last content to reduce allocations.
             return LastHttpContent.EMPTY_LAST_CONTENT;
@@ -642,15 +652,15 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         if (trailer == null) {
             trailer = this.trailer = new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER, validateHeaders);
         }
-        while (line.length() > 0) {
-            char firstChar = line.charAt(0);
+        while (line.isReadable()) {
+            char firstChar = (char) line.getUnsignedByte(line.readerIndex());
             if (lastHeader != null && (firstChar == ' ' || firstChar == '\t')) {
                 List<String> current = trailer.trailingHeaders().getAll(lastHeader);
                 if (!current.isEmpty()) {
                     int lastPos = current.size() - 1;
                     //please do not make one line from below code
                     //as it breaks +XX:OptimizeStringConcat optimization
-                    String lineTrimmed = line.toString().trim();
+                    AsciiString lineTrimmed = ByteBufUtil.getAscii(line).trim();
                     String currentLastPos = current.get(lastPos);
                     current.set(lastPos, currentLastPos + lineTrimmed);
                 }
@@ -660,7 +670,8 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
                 if (!HttpHeaderNames.CONTENT_LENGTH.contentEqualsIgnoreCase(headerName) &&
                         !HttpHeaderNames.TRANSFER_ENCODING.contentEqualsIgnoreCase(headerName) &&
                         !HttpHeaderNames.TRAILER.contentEqualsIgnoreCase(headerName)) {
-                    trailer.trailingHeaders().add(headerName, value);
+                    name = new AsciiString(headerName);
+                    trailer.trailingHeaders().add(name, value);
                 }
                 lastHeader = name;
                 // reset name and value fields
@@ -669,6 +680,8 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
             }
             line = headerParser.parse(buffer);
             if (line == null) {
+                name = name != null ? new AsciiString(name) : null;
+                value = value != null ? new AsciiString(value) : null;
                 return null;
             }
         }
@@ -681,20 +694,29 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
     protected abstract HttpMessage createMessage(String[] initialLine) throws Exception;
     protected abstract HttpMessage createInvalidMessage();
 
-    private static int getChunkSize(String hex) {
+    protected HttpMessage createMessage(ByteBuf[] initialLine) throws Exception {
+        String[] strings = new String[initialLine.length];
+        for (int i = strings.length - 1; i >= 0; i--) {
+            strings[i] = ByteBufUtil.getAscii(initialLine[i]).toString();
+        }
+        return createMessage(strings);
+    }
+
+    private static int getChunkSize(ByteBuf buf) {
+        AsciiString hex = ByteBufUtil.getAscii(buf);
         hex = hex.trim();
         for (int i = 0; i < hex.length(); i ++) {
             char c = hex.charAt(i);
             if (c == ';' || Character.isWhitespace(c) || Character.isISOControl(c)) {
-                hex = hex.substring(0, i);
+                hex = hex.subSequence(0, i);
                 break;
             }
         }
 
-        return Integer.parseInt(hex, 16);
+        return hex.parseInt(16);
     }
 
-    private static String[] splitInitialLine(AppendableCharSequence sb) {
+    private static ByteBuf[] splitInitialLine(ByteBuf sb) {
         int aStart;
         int aEnd;
         int bStart;
@@ -702,7 +724,7 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         int cStart;
         int cEnd;
 
-        aStart = findNonWhitespace(sb, 0);
+        aStart = findNonWhitespace(sb, sb.readerIndex());
         aEnd = findWhitespace(sb, aStart);
 
         bStart = findNonWhitespace(sb, aEnd);
@@ -711,92 +733,87 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         cStart = findNonWhitespace(sb, bEnd);
         cEnd = findEndOfString(sb);
 
-        return new String[] {
-                sb.subStringUnsafe(aStart, aEnd),
-                sb.subStringUnsafe(bStart, bEnd),
-                cStart < cEnd? sb.subStringUnsafe(cStart, cEnd) : "" };
+        return new ByteBuf[] {
+                sb.slice(aStart, aEnd - aStart),
+                sb.slice(bStart, bEnd - bStart),
+                cStart < cEnd ? sb.slice(cStart, cEnd - cStart) : Unpooled.EMPTY_BUFFER };
     }
 
-    private void splitHeader(AppendableCharSequence sb) {
-        final int length = sb.length();
+    private void splitHeader(ByteBuf sb) {
+        final int end = sb.writerIndex();
         int nameStart;
         int nameEnd;
         int colonEnd;
         int valueStart;
         int valueEnd;
 
-        nameStart = findNonWhitespace(sb, 0);
-        for (nameEnd = nameStart; nameEnd < length; nameEnd ++) {
-            char ch = sb.charAt(nameEnd);
-            if (ch == ':' || Character.isWhitespace(ch)) {
-                break;
-            }
-        }
+        nameStart = findNonWhitespace(sb, sb.readerIndex());
+        nameEnd = sb.forEachByte(nameStart, end - nameStart, ByteProcessor.FIND_COLON_OR_WHITESPACE);
+        nameEnd = nameEnd == -1 ? end : nameEnd;
 
-        for (colonEnd = nameEnd; colonEnd < length; colonEnd ++) {
-            if (sb.charAt(colonEnd) == ':') {
-                colonEnd ++;
-                break;
-            }
-        }
+        colonEnd = sb.forEachByte(nameEnd, end - nameEnd, ByteProcessor.FIND_NON_COLON_OR_WHITESPACE);
+        colonEnd = colonEnd == -1 ? end : colonEnd;
 
-        name = sb.subStringUnsafe(nameStart, nameEnd);
+        name = ByteBufUtil.getAscii(sb, nameStart, nameEnd - nameStart);
         valueStart = findNonWhitespace(sb, colonEnd);
-        if (valueStart == length) {
+        if (valueStart == end) {
             value = EMPTY_VALUE;
         } else {
             valueEnd = findEndOfString(sb);
-            value = sb.subStringUnsafe(valueStart, valueEnd);
+            value = ByteBufUtil.getAscii(sb, valueStart, valueEnd - valueStart);
         }
     }
 
-    private static int findNonWhitespace(AppendableCharSequence sb, int offset) {
-        for (int result = offset; result < sb.length(); ++result) {
-            if (!Character.isWhitespace(sb.charAtUnsafe(result))) {
-                return result;
-            }
-        }
-        return sb.length();
+    private static int findNonWhitespace(ByteBuf sb, int offset) {
+        int res = sb.forEachByte(offset, sb.writerIndex() - offset, ByteProcessor.FIND_NON_LINEAR_WHITESPACE);
+        return res == -1 ? sb.writerIndex() : res;
     }
 
-    private static int findWhitespace(AppendableCharSequence sb, int offset) {
-        for (int result = offset; result < sb.length(); ++result) {
-            if (Character.isWhitespace(sb.charAtUnsafe(result))) {
-                return result;
-            }
-        }
-        return sb.length();
+    private static int findWhitespace(ByteBuf sb, int offset) {
+        int res = sb.forEachByte(offset, sb.writerIndex() - offset, ByteProcessor.FIND_LINEAR_WHITESPACE);
+        return res == -1 ? sb.writerIndex() : res;
     }
 
-    private static int findEndOfString(AppendableCharSequence sb) {
-        for (int result = sb.length() - 1; result > 0; --result) {
-            if (!Character.isWhitespace(sb.charAtUnsafe(result))) {
-                return result + 1;
-            }
-        }
-        return 0;
+    private static int findEndOfString(ByteBuf sb) {
+        int res = sb.forEachByteDesc(sb.readerIndex(), sb.readableBytes(), ByteProcessor.FIND_NON_LINEAR_WHITESPACE);
+        return res == -1 ? sb.readerIndex() : res + 1;
     }
 
     private static class HeaderParser implements ByteProcessor {
-        private final AppendableCharSequence seq;
         private final int maxLength;
         private int size;
 
-        HeaderParser(AppendableCharSequence seq, int maxLength) {
-            this.seq = seq;
+        HeaderParser(int maxLength) {
             this.maxLength = maxLength;
         }
 
-        public AppendableCharSequence parse(ByteBuf buffer) {
+        public ByteBuf parse(ByteBuf buffer) {
             final int oldSize = size;
-            seq.reset();
+            int startIndex = buffer.readerIndex();
             int i = buffer.forEachByte(this);
             if (i == -1) {
                 size = oldSize;
                 return null;
             }
-            buffer.readerIndex(i + 1);
-            return seq;
+            int nextReaderIndex;
+            if (buffer.getByte(i) == HttpConstants.CR) {
+                if (i + 1 == buffer.writerIndex()) {
+                    size = oldSize;
+                    return null;
+                }
+                if (buffer.getByte(i + 1) == HttpConstants.LF) {
+                    nextReaderIndex = i + 2;
+                } else {
+                    nextReaderIndex = i + 1;
+                }
+            } else {
+                nextReaderIndex = i + 1;
+            }
+            try {
+                return buffer.slice(startIndex, i - startIndex);
+            } finally {
+                buffer.readerIndex(nextReaderIndex);
+            }
         }
 
         public void reset() {
@@ -806,10 +823,7 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         @Override
         public boolean process(byte value) throws Exception {
             char nextByte = (char) (value & 0xFF);
-            if (nextByte == HttpConstants.CR) {
-                return true;
-            }
-            if (nextByte == HttpConstants.LF) {
+            if (nextByte == HttpConstants.CR || nextByte == HttpConstants.LF) {
                 return false;
             }
 
@@ -820,8 +834,6 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
                 //       If decoding a response, just throw an exception.
                 throw newException(maxLength);
             }
-
-            seq.append(nextByte);
             return true;
         }
 
@@ -832,12 +844,12 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
 
     private static final class LineParser extends HeaderParser {
 
-        LineParser(AppendableCharSequence seq, int maxLength) {
-            super(seq, maxLength);
+        LineParser(int maxLength) {
+            super(maxLength);
         }
 
         @Override
-        public AppendableCharSequence parse(ByteBuf buffer) {
+        public ByteBuf parse(ByteBuf buffer) {
             reset();
             return super.parse(buffer);
         }

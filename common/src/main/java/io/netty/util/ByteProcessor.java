@@ -14,10 +14,7 @@
  */
 package io.netty.util;
 
-import static io.netty.util.ByteProcessorUtils.CARRIAGE_RETURN;
-import static io.netty.util.ByteProcessorUtils.HTAB;
-import static io.netty.util.ByteProcessorUtils.LINE_FEED;
-import static io.netty.util.ByteProcessorUtils.SPACE;
+import static io.netty.util.ByteProcessorUtils.*;
 
 /**
  * Provides a mechanism to iterate over a collection of bytes.
@@ -91,6 +88,11 @@ public interface ByteProcessor {
     ByteProcessor FIND_SEMI_COLON = new IndexOfProcessor((byte) ';');
 
     /**
+     * Aborts on a colon {@code (':')}.
+     */
+    ByteProcessor FIND_COLON = new IndexOfProcessor(COLON);
+
+    /**
      * Aborts on a comma {@code (',')}.
      */
     ByteProcessor FIND_COMMA = new IndexOfProcessor((byte) ',');
@@ -139,6 +141,21 @@ public interface ByteProcessor {
             return value == SPACE || value == HTAB;
         }
     };
+
+    ByteProcessor FIND_COLON_OR_WHITESPACE = new ByteProcessor() {
+        @Override
+        public boolean process(byte value) {
+            return value != COLON && value != SPACE && value != HTAB;
+        }
+    };
+
+    ByteProcessor FIND_NON_COLON_OR_WHITESPACE = new ByteProcessor() {
+        @Override
+        public boolean process(byte value) {
+            return value == COLON || value == SPACE || value == HTAB;
+        }
+    };
+
 
     /**
      * @return {@code true} if the processor wants to continue the loop and handle the next byte in the buffer.

@@ -19,6 +19,7 @@ final class ByteProcessorUtils {
     static final byte HTAB = (byte) '\t';
     static final byte CARRIAGE_RETURN = (byte) '\r';
     static final byte LINE_FEED = (byte) '\n';
+    static final byte COLON = (byte) ':';
 
     private ByteProcessorUtils() {
     }

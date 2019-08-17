@@ -40,6 +40,7 @@ import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 import static io.netty.util.internal.MathUtil.isOutOfBounds;
@@ -759,6 +760,23 @@ public final class ByteBufUtil {
             buffer._setByte(writerIndex++, AsciiString.c2b(seq.charAt(i)));
         }
         return len;
+    }
+
+    public static AsciiString getAscii(ByteBuf buf) {
+        return getAscii(buf, buf.readerIndex(), buf.readableBytes());
+    }
+
+    public static AsciiString getAscii(ByteBuf buf, int index, int length) {
+        if (!buf.isReadable() || length == 0) {
+            return AsciiString.EMPTY_STRING;
+        }
+        if (buf.hasArray()) {
+            return new AsciiString(buf.array(), buf.arrayOffset() + index, length, false);
+        } else {
+            byte[] bytes = new byte[length];
+            buf.getBytes(index, bytes, 0, length);
+            return new AsciiString(bytes, 0, length, false);
+        }
     }
 
     /**

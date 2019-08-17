@@ -48,7 +48,7 @@ public class HttpInvalidMessageTest {
     @Test
     public void testRequestWithBadHeader() throws Exception {
         EmbeddedChannel ch = new EmbeddedChannel(new HttpRequestDecoder());
-        ch.writeInbound(Unpooled.copiedBuffer("GET /maybe-something HTTP/1.0\r\n", CharsetUtil.UTF_8));
+        ch.writeInbound(Unpooled.copiedBuffer("GET /maybe-something HTTP/3.2\r\n", CharsetUtil.UTF_8));
         ch.writeInbound(Unpooled.copiedBuffer("Good_Name: Good Value\r\n", CharsetUtil.UTF_8));
         ch.writeInbound(Unpooled.copiedBuffer("Bad=Name: Bad Value\r\n", CharsetUtil.UTF_8));
         ch.writeInbound(Unpooled.copiedBuffer("\r\n", CharsetUtil.UTF_8));
@@ -58,6 +58,9 @@ public class HttpInvalidMessageTest {
         assertTrue(dr.isFailure());
         assertEquals("Good Value", req.headers().get(of("Good_Name")));
         assertEquals("/maybe-something", req.uri());
+        assertEquals("HTTP", req.protocolVersion().protocolName());
+        assertEquals(3, req.protocolVersion().majorVersion());
+        assertEquals(2, req.protocolVersion().minorVersion());
         ensureInboundTrafficDiscarded(ch);
     }
 
