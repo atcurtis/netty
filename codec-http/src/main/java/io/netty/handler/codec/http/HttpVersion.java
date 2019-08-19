@@ -226,6 +226,10 @@ public class HttpVersion implements Comparable<HttpVersion> {
         return text.toString();
     }
 
+    public AsciiString ascii() {
+        return text;
+    }
+
     /**
      * Returns {@code true} if and only if the connection is kept alive unless
      * the {@code "Connection"} header is set to {@code "close"} explicitly.

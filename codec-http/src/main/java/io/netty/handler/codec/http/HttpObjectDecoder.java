@@ -484,10 +484,10 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         if (msg.status().code() != HttpResponseStatus.SWITCHING_PROTOCOLS.code()) {
             return false;
         }
-        String newProtocol = msg.headers().get(HttpHeaderNames.UPGRADE);
+        AsciiString newProtocol = msg.headers().getAsciiString(HttpHeaderNames.UPGRADE);
         return newProtocol == null ||
-                !newProtocol.contains(HttpVersion.HTTP_1_0.text()) &&
-                !newProtocol.contains(HttpVersion.HTTP_1_1.text());
+                !newProtocol.contains(HttpVersion.HTTP_1_0.ascii()) &&
+                !newProtocol.contains(HttpVersion.HTTP_1_1.ascii());
     }
 
     /**
