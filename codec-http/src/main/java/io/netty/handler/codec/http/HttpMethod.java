@@ -98,15 +98,21 @@ public class HttpMethod implements Comparable<HttpMethod> {
      * will be returned.  Otherwise, a new instance will be returned.
      */
     public static HttpMethod valueOf(String name) {
-        return valueOf((CharSequence) name);
+        for (HttpMethod method : methodArray) {
+            if (method.asciiName().contentEqualsIgnoreCase(name)) {
+                return method;
+            }
+        }
+        return new HttpMethod(name.trim().toUpperCase());
     }
+
     public static HttpMethod valueOf(CharSequence name) {
         for (HttpMethod method : methodArray) {
             if (method.asciiName().contentEqualsIgnoreCase(name)) {
                 return method;
             }
         }
-        return new HttpMethod(name.toString().trim().toUpperCase());
+        return new HttpMethod(AsciiString.of(name).trim().toUpperCase());
     }
 
     private final AsciiString name;
@@ -120,7 +126,16 @@ public class HttpMethod implements Comparable<HttpMethod> {
      */
     public HttpMethod(String name) {
         name = checkNotNull(name, "name").trim();
-        if (name.isEmpty()) {
+        this.name = AsciiString.cached(checkName(name));
+    }
+
+    public HttpMethod(AsciiString name) {
+        name = checkNotNull(name, "name").trim();
+        this.name = new AsciiString(checkName(name));
+    }
+
+    private static <T extends CharSequence> T checkName(T name) {
+        if (name.length() == 0) {
             throw new IllegalArgumentException("empty name");
         }
 
@@ -130,8 +145,7 @@ public class HttpMethod implements Comparable<HttpMethod> {
                 throw new IllegalArgumentException("invalid character in name");
             }
         }
-
-        this.name = AsciiString.cached(name);
+        return name;
     }
 
     /**
