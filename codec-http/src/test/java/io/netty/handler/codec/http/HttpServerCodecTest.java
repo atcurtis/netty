@@ -178,4 +178,25 @@ public class HttpServerCodecTest {
         }
         return Unpooled.copiedBuffer(sb.toString(), CharsetUtil.UTF_8);
     }
+
+    @Test
+    public void testSimpleHttpVersion() {
+        EmbeddedChannel ch = new EmbeddedChannel(new HttpServerCodec());
+
+        // Send the request headers.
+        assertTrue(ch.writeInbound(Unpooled.copiedBuffer(
+            "HEAD / DEMO/3.2\r\n\r\n", CharsetUtil.UTF_8)));
+
+        HttpRequest request = ch.readInbound();
+        assertEquals(HttpMethod.HEAD, request.method());
+        assertEquals("DEMO", request.protocolVersion().protocolName());
+        assertEquals(3, request.protocolVersion().majorVersion());
+        assertEquals(2, request.protocolVersion().minorVersion());
+        LastHttpContent content = ch.readInbound();
+        assertFalse(content.content().isReadable());
+        content.release();
+
+        assertFalse(ch.finishAndReleaseAll());
+    }
+
 }
