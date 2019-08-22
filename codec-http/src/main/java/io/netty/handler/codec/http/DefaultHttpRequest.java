@@ -23,7 +23,7 @@ import static io.netty.util.internal.ObjectUtil.checkNotNull;
 public class DefaultHttpRequest extends DefaultHttpMessage implements HttpRequest {
     private static final int HASH_CODE_PRIME = 31;
     private HttpMethod method;
-    private String uri;
+    private CharSequence uri;
 
     /**
      * Creates a new instance.
@@ -45,6 +45,10 @@ public class DefaultHttpRequest extends DefaultHttpMessage implements HttpReques
      * @param validateHeaders   validate the header names and values when adding them to the {@link HttpHeaders}
      */
     public DefaultHttpRequest(HttpVersion httpVersion, HttpMethod method, String uri, boolean validateHeaders) {
+        this(httpVersion, method, (CharSequence) uri, validateHeaders);
+    }
+
+    public DefaultHttpRequest(HttpVersion httpVersion, HttpMethod method, CharSequence uri, boolean validateHeaders) {
         super(httpVersion, validateHeaders, false);
         this.method = checkNotNull(method, "method");
         this.uri = checkNotNull(uri, "uri");
@@ -83,7 +87,7 @@ public class DefaultHttpRequest extends DefaultHttpMessage implements HttpReques
 
     @Override
     public String uri() {
-        return uri;
+        return uri.toString();
     }
 
     @Override
