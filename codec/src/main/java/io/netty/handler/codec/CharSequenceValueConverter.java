@@ -27,21 +27,43 @@ public class CharSequenceValueConverter implements ValueConverter<CharSequence> 
     public static final CharSequenceValueConverter INSTANCE = new CharSequenceValueConverter();
     private static final AsciiString TRUE_ASCII = new AsciiString("true");
 
+    // Cache small values ... This is not a lot of memory these days.
+    private static final String[] POSITIVE = new String[0x8000];
+    private static final String[] NEGATIVE = new String[0x8000];
+
     @Override
     public CharSequence convertObject(Object value) {
         if (value instanceof CharSequence) {
             return (CharSequence) value;
+        }
+        if (value instanceof Integer) {
+            return convertInt((Integer) value);
+        }
+        if (value instanceof Long) {
+            return convertLong((Long) value);
+        }
+        if (value instanceof Short) {
+            return convertShort((Short) value);
+        }
+        if (value instanceof Byte) {
+            return convertShort((Byte) value);
         }
         return value.toString();
     }
 
     @Override
     public CharSequence convertInt(int value) {
+        if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+            return convertShort((short) value);
+        }
         return String.valueOf(value);
     }
 
     @Override
     public CharSequence convertLong(long value) {
+        if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+            return convertShort((short) value);
+        }
         return String.valueOf(value);
     }
 
@@ -72,7 +94,7 @@ public class CharSequenceValueConverter implements ValueConverter<CharSequence> 
 
     @Override
     public CharSequence convertByte(byte value) {
-        return String.valueOf(value);
+        return convertShort(value);
     }
 
     @Override
@@ -90,7 +112,21 @@ public class CharSequenceValueConverter implements ValueConverter<CharSequence> 
 
     @Override
     public CharSequence convertShort(short value) {
-        return String.valueOf(value);
+        String string;
+        if (value >= 0) {
+            string = POSITIVE[value];
+            if (string == null) {
+                string = String.valueOf(value);
+                POSITIVE[value] = string;
+            }
+        } else {
+            string = NEGATIVE[0x7fff & value];
+            if (string == null) {
+                string = String.valueOf(value);
+                NEGATIVE[0x7fff] = string;
+            }
+        }
+        return string;
     }
 
     @Override
@@ -119,7 +155,7 @@ public class CharSequenceValueConverter implements ValueConverter<CharSequence> 
 
     @Override
     public CharSequence convertTimeMillis(long value) {
-        return DateFormatter.format(new Date(value));
+        return DateFormatter.formatAscii(new Date(value));
     }
 
     @Override

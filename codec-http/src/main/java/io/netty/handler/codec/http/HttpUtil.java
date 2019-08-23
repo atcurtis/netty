@@ -228,7 +228,11 @@ public final class HttpUtil {
      * Sets the {@code "Content-Length"} header.
      */
     public static void setContentLength(HttpMessage message, long length) {
-        message.headers().set(HttpHeaderNames.CONTENT_LENGTH, length);
+        if (length >= Integer.MIN_VALUE && length <= Integer.MAX_VALUE) {
+            message.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, (int) length);
+        } else {
+            message.headers().set(HttpHeaderNames.CONTENT_LENGTH, length);
+        }
     }
 
     public static boolean isContentLengthSet(HttpMessage m) {

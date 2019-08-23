@@ -425,7 +425,7 @@ public class DefaultHttpHeaders extends HttpHeaders {
             if (value instanceof Calendar) {
                 return DateFormatter.formatAscii(((Calendar) value).getTime());
             }
-            return value.toString();
+            return super.convertObject(value);
         }
     }
 
