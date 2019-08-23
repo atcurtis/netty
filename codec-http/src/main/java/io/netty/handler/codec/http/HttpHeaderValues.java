@@ -17,6 +17,10 @@
 package io.netty.handler.codec.http;
 
 import io.netty.util.AsciiString;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
+
 
 /**
  * Standard HTTP header values.
@@ -210,4 +214,57 @@ public final class HttpHeaderValues {
     public static final AsciiString WEBSOCKET = AsciiString.cached("websocket");
 
     private HttpHeaderValues() { }
+
+    public static final AsciiString asciiStringOf(CharSequence charSequence) {
+        int length = charSequence.length();
+        if (length == 0) {
+            return AsciiString.EMPTY_STRING;
+        }
+        if (length <= STATIC_STRINGS.length) {
+            for (AsciiString string : STATIC_STRINGS[length - 1]) {
+                if (string.contentEquals(charSequence)) {
+                    return string;
+                }
+            }
+        }
+        return AsciiString.of(charSequence);
+    }
+
+    private static final AsciiString[][] STATIC_STRINGS;
+
+    static {
+        try {
+            AsciiString[][] names = new AsciiString[0][];
+
+            for (Field field : HttpHeaderValues.class.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers()) && AsciiString.class.equals(field.getType())) {
+                    AsciiString value = (AsciiString) field.get(null);
+
+                    if (value.length() > names.length) {
+                        names = Arrays.copyOf(names, value.length());
+                    }
+
+                    if (names[value.length() - 1] == null) {
+                        names[value.length() - 1] = new AsciiString[] { value };
+                    } else {
+                        AsciiString[] array = Arrays.copyOf(names[value.length() - 1], names[value.length() - 1].length + 1);
+                        array[array.length - 1] = value;
+                        names[value.length() - 1] = array;
+                    }
+                }
+            }
+
+            AsciiString[] emptyArray = new AsciiString[0];
+            for (int i = names.length - 1; i >= 0; i--) {
+                if (names[i] == null) {
+                    names[i] = emptyArray;
+                }
+            }
+
+            STATIC_STRINGS = names;
+        } catch (Exception e) {
+            throw new Error(e);
+        }
+    }
+
 }

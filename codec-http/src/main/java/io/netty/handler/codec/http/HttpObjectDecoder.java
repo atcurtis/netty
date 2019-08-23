@@ -29,6 +29,7 @@ import io.netty.handler.codec.TooLongFrameException;
 import io.netty.util.AsciiString;
 import io.netty.util.ByteProcessor;
 
+import io.netty.util.internal.AppendableAsciiSequence;
 import java.util.List;
 
 /**
@@ -110,6 +111,7 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
     protected final boolean validateHeaders;
     private final HeaderParser headerParser;
     private final LineParser lineParser;
+    private final AppendableAsciiSequence asciiSequence;
 
     private HttpMessage message;
     private long chunkSize;
@@ -180,6 +182,7 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
 
         lineParser = new LineParser(maxInitialLineLength);
         headerParser = new HeaderParser(maxHeaderSize);
+        asciiSequence = new AppendableAsciiSequence(initialBufferSize);
         this.maxChunkSize = maxChunkSize;
         this.chunkedSupported = chunkedSupported;
         this.validateHeaders = validateHeaders;
@@ -319,8 +322,10 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
             if (!lineParser.parse(buffer, buffer.readerIndex())) {
                 return;
             }
-            int chunkSize = getChunkSize(AsciiString.of(
-                new ByteBufAsciiSequence(buffer,lineParser.getLineStart(), lineParser.getLineEnd() - lineParser.getLineStart())));
+            asciiSequence.reset();
+            asciiSequence.append(new ByteBufAsciiSequence(buffer,lineParser.getLineStart(), lineParser.getLineEnd() - lineParser.getLineStart()));
+
+            int chunkSize = getChunkSize(asciiSequence.subStringUnsafe(0, asciiSequence.length(), false));
             buffer.readerIndex(lineParser.getNextReaderIndex());
             this.chunkSize = chunkSize;
             if (chunkSize == 0) {
@@ -720,12 +725,18 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
     }
 
     private void addHeader(HttpHeaders header, ByteBuf buffer, int nameStart, int nameEnd, int valueStart, int valueEnd) {
-        AsciiString headerName = HttpHeaderNames.asciiStringOf(new ByteBufAsciiSequence(buffer, nameStart, nameEnd - nameStart));
+        CharSequence headerName = new ByteBufAsciiSequence(buffer, nameStart, nameEnd - nameStart);
         CharSequence headerValue = valueEnd > valueStart
             ? new ByteBufAsciiSequence(buffer, valueStart, valueEnd - valueStart) : "";
-        header.add(
-            AsciiString.of(headerName),
-            AsciiString.of(headerValue));
+        header.add(asciiStringOfHeaderName(headerName), asciiStringOfHeaderValue(headerValue));
+    }
+
+    protected AsciiString asciiStringOfHeaderName(CharSequence headerName) {
+        return HttpHeaderNames.asciiStringOf(headerName);
+    }
+
+    protected AsciiString asciiStringOfHeaderValue(CharSequence headerValue) {
+        return HttpHeaderValues.asciiStringOf(headerValue);
     }
 
     protected abstract boolean isDecodingRequest();
