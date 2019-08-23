@@ -323,7 +323,10 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
                 return;
             }
             asciiSequence.reset();
-            asciiSequence.append(new ByteBufAsciiSequence(buffer,lineParser.getLineStart(), lineParser.getLineEnd() - lineParser.getLineStart()));
+            asciiSequence.append(new ByteBufAsciiSequence(
+                buffer,
+                lineParser.getLineStart(),
+                lineParser.getLineEnd() - lineParser.getLineStart()));
 
             int chunkSize = getChunkSize(asciiSequence.subStringUnsafe(0, asciiSequence.length(), false));
             buffer.readerIndex(lineParser.getNextReaderIndex());
@@ -724,7 +727,8 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         return trailer;
     }
 
-    private void addHeader(HttpHeaders header, ByteBuf buffer, int nameStart, int nameEnd, int valueStart, int valueEnd) {
+    private void addHeader(HttpHeaders header, ByteBuf buffer,
+        int nameStart, int nameEnd, int valueStart, int valueEnd) {
         CharSequence headerName = new ByteBufAsciiSequence(buffer, nameStart, nameEnd - nameStart);
         CharSequence headerValue = valueEnd > valueStart
             ? new ByteBufAsciiSequence(buffer, valueStart, valueEnd - valueStart) : "";

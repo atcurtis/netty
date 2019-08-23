@@ -467,8 +467,9 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
 
     public static HttpResponseStatus valueOf(int code, CharSequence reasonPhrase) {
         HttpResponseStatus responseStatus = valueOf0(code);
-        return responseStatus != null && responseStatus.reasonPhrase().contentEquals(reasonPhrase) ? responseStatus :
-                new HttpResponseStatus(code, reasonPhrase instanceof String ? reasonPhrase : AsciiString.of(reasonPhrase));
+        return responseStatus != null && responseStatus.reasonPhrase().contentEquals(reasonPhrase) ? responseStatus
+            : new HttpResponseStatus(code, reasonPhrase instanceof String ? reasonPhrase
+                : AsciiString.of(reasonPhrase));
     }
 
     /**

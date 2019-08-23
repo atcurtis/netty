@@ -215,7 +215,7 @@ public final class HttpHeaderValues {
 
     private HttpHeaderValues() { }
 
-    public static final AsciiString asciiStringOf(CharSequence charSequence) {
+    public static AsciiString asciiStringOf(CharSequence charSequence) {
         int length = charSequence.length();
         if (length == 0) {
             return AsciiString.EMPTY_STRING;
@@ -244,12 +244,14 @@ public final class HttpHeaderValues {
                         names = Arrays.copyOf(names, value.length());
                     }
 
-                    if (names[value.length() - 1] == null) {
-                        names[value.length() - 1] = new AsciiString[] { value };
+                    int index = value.length() - 1;
+                    AsciiString[] array = names[index];
+                    if (array == null) {
+                        names[index] = new AsciiString[] { value };
                     } else {
-                        AsciiString[] array = Arrays.copyOf(names[value.length() - 1], names[value.length() - 1].length + 1);
+                        array = Arrays.copyOf(array, array.length + 1);
                         array[array.length - 1] = value;
-                        names[value.length() - 1] = array;
+                        names[index] = array;
                     }
                 }
             }
