@@ -18,6 +18,7 @@ package io.netty.handler.codec.http;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.TooLongFrameException;
+import io.netty.util.AsciiString;
 
 
 /**
@@ -117,6 +118,17 @@ public class HttpResponseDecoder extends HttpObjectDecoder {
         return new DefaultHttpResponse(
                 HttpVersion.valueOf(initialLine[0]),
                 HttpResponseStatus.valueOf(Integer.parseInt(initialLine[1]), initialLine[2]), validateHeaders);
+    }
+
+    @Override
+    protected HttpMessage createMessage(CharSequence[] initialLine) {
+        HttpVersion httpVersion = HttpVersion.valueOf(initialLine[0]);
+        asciiSequence.reset();
+        asciiSequence.append(initialLine[1]);
+        int code = asciiSequence.subStringUnsafe(0, asciiSequence.length()).parseInt();
+        HttpResponseStatus responseStatus = HttpResponseStatus.valueOf(code, initialLine[2]);
+
+        return new DefaultHttpResponse(httpVersion, responseStatus, validateHeaders);
     }
 
     @Override

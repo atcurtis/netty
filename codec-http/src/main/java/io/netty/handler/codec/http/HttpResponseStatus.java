@@ -462,6 +462,10 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
      * @return the {@link HttpResponseStatus} represented by the specified {@code code} and {@code reasonPhrase}.
      */
     public static HttpResponseStatus valueOf(int code, String reasonPhrase) {
+        return valueOf(code, (CharSequence) reasonPhrase);
+    }
+
+    public static HttpResponseStatus valueOf(int code, CharSequence reasonPhrase) {
         HttpResponseStatus responseStatus = valueOf0(code);
         return responseStatus != null && responseStatus.reasonPhrase().contentEquals(reasonPhrase) ? responseStatus :
                 new HttpResponseStatus(code, reasonPhrase);
@@ -521,7 +525,7 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
     private final AsciiString codeAsText;
     private HttpStatusClass codeClass;
 
-    private final String reasonPhrase;
+    private final CharSequence reasonPhrase;
     private final byte[] bytes;
 
     /**
@@ -538,7 +542,14 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
         this(code, reasonPhrase, false);
     }
 
-    private HttpResponseStatus(int code, String reasonPhrase, boolean bytes) {
+    /**
+     * Creates a new instance with the specified {@code code} and its {@code reasonPhrase}.
+     */
+    public HttpResponseStatus(int code, CharSequence reasonPhrase) {
+        this(code, reasonPhrase, false);
+    }
+
+    private HttpResponseStatus(int code, CharSequence reasonPhrase, boolean bytes) {
         checkPositiveOrZero(code, "code");
 
         if (reasonPhrase == null) {
@@ -585,7 +596,7 @@ public class HttpResponseStatus implements Comparable<HttpResponseStatus> {
      * Returns the reason phrase of this {@link HttpResponseStatus}.
      */
     public String reasonPhrase() {
-        return reasonPhrase;
+        return reasonPhrase.toString();
     }
 
     /**

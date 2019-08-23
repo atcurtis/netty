@@ -111,7 +111,7 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
     protected final boolean validateHeaders;
     private final HeaderParser headerParser;
     private final LineParser lineParser;
-    private final AppendableAsciiSequence asciiSequence;
+    protected final AppendableAsciiSequence asciiSequence;
 
     private HttpMessage message;
     private long chunkSize;
