@@ -188,8 +188,8 @@ public class HttpRequestDecoderTest {
                 + crlf + crlf;
         assertTrue(channel.writeInbound(Unpooled.copiedBuffer(request, CharsetUtil.US_ASCII)));
         HttpRequest req = channel.readInbound();
-        assertEquals("part1 newLinePart2", req.headers().get(of("MyTestHeader")));
-        assertEquals("part21 newLinePart22", req.headers().get(of("MyTestHeader2")));
+        assertEquals("part1" + crlf + "              newLinePart2", req.headers().get(of("MyTestHeader")));
+        assertEquals("part21" + crlf + "\t            newLinePart22", req.headers().get(of("MyTestHeader2")));
 
         LastHttpContent c = channel.readInbound();
         c.release();

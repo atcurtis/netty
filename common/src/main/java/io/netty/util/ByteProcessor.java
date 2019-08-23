@@ -141,6 +141,26 @@ public interface ByteProcessor {
     };
 
     /**
+     * Aborts on a byte which is not whitespace.
+     */
+    ByteProcessor FIND_NON_WHITESPACE = new ByteProcessor() {
+        @Override
+        public boolean process(byte value) {
+            return Character.isWhitespace(0xff & value);
+        }
+    };
+
+    /**
+     * Aborts on a byte which is whitespace.
+     */
+    ByteProcessor FIND_WHITESPACE = new ByteProcessor() {
+        @Override
+        public boolean process(byte value) {
+            return !Character.isWhitespace(0xff & value);
+        }
+    };
+
+    /**
      * @return {@code true} if the processor wants to continue the loop and handle the next byte in the buffer.
      *         {@code false} if the processor wants to stop handling bytes and abort the loop.
      */
