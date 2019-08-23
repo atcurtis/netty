@@ -683,7 +683,7 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
                 if (!HttpHeaderNames.CONTENT_LENGTH.contentEqualsIgnoreCase(headerName) &&
                     !HttpHeaderNames.TRANSFER_ENCODING.contentEqualsIgnoreCase(headerName) &&
                     !HttpHeaderNames.TRAILER.contentEqualsIgnoreCase(headerName)) {
-                    addHeader(trailer.trailingHeaders(), buffer, headerName, valueStart, valueEnd);
+                    addHeader(trailer.trailingHeaders(), buffer, nameStart, nameEnd, valueStart, valueEnd);
                 }
                 nameStart = -1;
                 nameEnd = -1;
@@ -720,12 +720,7 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
     }
 
     private void addHeader(HttpHeaders header, ByteBuf buffer, int nameStart, int nameEnd, int valueStart, int valueEnd) {
-        addHeader(header, buffer,
-            new ByteBufAsciiSequence(buffer, nameStart, nameEnd - nameStart),
-            valueStart, valueEnd);
-    }
-
-    private void addHeader(HttpHeaders header, ByteBuf buffer, ByteBufAsciiSequence headerName, int valueStart, int valueEnd) {
+        AsciiString headerName = HttpHeaderNames.asciiStringOf(new ByteBufAsciiSequence(buffer, nameStart, nameEnd - nameStart));
         CharSequence headerValue = valueEnd > valueStart
             ? new ByteBufAsciiSequence(buffer, valueStart, valueEnd - valueStart) : "";
         header.add(
