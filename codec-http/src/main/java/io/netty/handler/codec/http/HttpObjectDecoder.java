@@ -30,6 +30,8 @@ import io.netty.util.AsciiString;
 import io.netty.util.ByteProcessor;
 
 import io.netty.util.internal.AppendableAsciiSequence;
+
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -125,6 +127,9 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
     private int valueStart = -1;
     private int valueEnd = -1;
 
+    private int headerCount;
+    private int[] headerOffsets = new int[64];
+
     private LastHttpContent trailer;
 
     /**
@@ -216,6 +221,7 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
             message = createMessage(initialLine);
             currentState = State.READ_HEADER;
             headerProcessed = 0;
+            headerCount = 0;
             // fall-through
         } catch (Exception e) {
             out.add(invalidMessage(buffer, e));
@@ -223,11 +229,25 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         }
         case READ_HEADER: try {
             int startIndex = buffer.readerIndex() + headerProcessed;
-            State nextState = readHeaders(buffer, startIndex);
-            if (nextState == null) {
+            if (!readHeaders(buffer, startIndex)) {
                 return;
             }
-            buffer.readSlice(headerProcessed); // TODO need to pin/retain this later when doing zero copy headers
+            ByteBuf slice = buffer.readSlice(headerProcessed);
+            applyHeaders(message.headers(), slice);
+
+            State nextState;
+
+            if (isContentAlwaysEmpty(message)) {
+                HttpUtil.setTransferEncodingChunked(message, false);
+                nextState = State.SKIP_CONTROL_CHARS;
+            } else if (HttpUtil.isTransferEncodingChunked(message)) {
+                nextState = State.READ_CHUNK_SIZE;
+            } else if (contentLength() >= 0) {
+                nextState = State.READ_FIXED_LENGTH_CONTENT;
+            } else {
+                nextState = State.READ_VARIABLE_LENGTH_CONTENT;
+            }
+
             currentState = nextState;
             switch (nextState) {
             case SKIP_CONTROL_CHARS:
@@ -334,6 +354,8 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
             if (chunkSize == 0) {
                 currentState = State.READ_CHUNK_FOOTER;
                 headerProcessed = 0;
+                headerCount = 0;
+                nameStart = -1;
                 return;
             }
             currentState = State.READ_CHUNKED_CONTENT;
@@ -378,6 +400,8 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
             if (trailer == null) {
                 return;
             }
+            ByteBuf slice = buffer.readSlice(headerProcessed);
+            applyHeaders(trailer.trailingHeaders(), slice);
             out.add(trailer);
             resetNow();
             return;
@@ -522,6 +546,8 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         nameEnd = -1;
         valueStart = -1;
         valueEnd = -1;
+        headerCount = 0;
+        headerProcessed = 0;
         contentLength = Long.MIN_VALUE;
         lineParser.reset();
         headerParser.reset();
@@ -585,12 +611,12 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         return skiped;
     }
 
-    private State readHeaders(ByteBuf buffer, int startIndex) {
+    private boolean readHeaders(ByteBuf buffer, int startIndex) {
         final HttpMessage message = this.message;
         final HttpHeaders headers = message.headers();
 
         if (!headerParser.parse(buffer, startIndex)) {
-            return null;
+            return false;
         }
 
         if (nameStart != -1) {
@@ -605,7 +631,8 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
             boolean readable = headerParser.getLineStart() < headerParser.getLineEnd();
             char firstChar = readable ? AsciiString.b2c(buffer.getByte(headerParser.getLineStart())) : '!';
             if (nameStart != -1 && !(firstChar == ' ' || firstChar == '\t')) {
-                addHeader(headers, buffer, nameStart, nameEnd, valueStart, valueEnd);
+                addHeader(buffer.readerIndex());
+                //addHeader(headers, buffer, nameStart, nameEnd, valueStart, valueEnd);
                 nameStart = -1;
                 nameEnd = -1;
                 valueStart = -1;
@@ -634,23 +661,34 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
                 valueEnd -= readerIndex;
             }
 
-            return null;
+            return false;
         }
 
         headerProcessed = headerParser.getNextReaderIndex() - buffer.readerIndex();
-        State nextState;
+        return true;
+    }
 
-        if (isContentAlwaysEmpty(message)) {
-            HttpUtil.setTransferEncodingChunked(message, false);
-            nextState = State.SKIP_CONTROL_CHARS;
-        } else if (HttpUtil.isTransferEncodingChunked(message)) {
-            nextState = State.READ_CHUNK_SIZE;
-        } else if (contentLength() >= 0) {
-            nextState = State.READ_FIXED_LENGTH_CONTENT;
-        } else {
-            nextState = State.READ_VARIABLE_LENGTH_CONTENT;
+    private void addHeader(int startOffset) {
+        if (headerCount + 4 > headerOffsets.length) {
+            headerOffsets = Arrays.copyOf(headerOffsets, headerOffsets.length + 64);
         }
-        return nextState;
+
+        headerOffsets[headerCount++] = nameStart - startOffset;
+        headerOffsets[headerCount++] = nameEnd - startOffset;
+        headerOffsets[headerCount++] = valueStart - startOffset;
+        headerOffsets[headerCount++] = valueEnd - startOffset;
+    }
+
+    private void applyHeaders(HttpHeaders header, ByteBuf buffer) {
+        final int offset = buffer.readerIndex();
+        int index = 0;
+        while (index < headerCount) {
+            int nameStart = headerOffsets[index++] + offset;
+            int nameEnd = headerOffsets[index++] + offset;
+            int valueStart = headerOffsets[index++] + offset;
+            int valueEnd = headerOffsets[index++] + offset;
+            addHeader(header, buffer, nameStart, nameEnd, valueStart, valueEnd);
+        }
     }
 
     private long contentLength() {
@@ -668,7 +706,7 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
         if (headerParser.getLineStart() == headerParser.getLineEnd() && trailer == null) {
             // We have received the empty line which signals the trailer is complete and did not parse any trailers
             // before. Just return an empty last content to reduce allocations.
-            buffer.readerIndex(headerParser.nextReaderIndex);
+            headerProcessed = headerParser.getNextReaderIndex() - buffer.readerIndex();
             return LastHttpContent.EMPTY_LAST_CONTENT;
         }
 
@@ -691,7 +729,8 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
                 if (!HttpHeaderNames.CONTENT_LENGTH.contentEqualsIgnoreCase(headerName) &&
                     !HttpHeaderNames.TRANSFER_ENCODING.contentEqualsIgnoreCase(headerName) &&
                     !HttpHeaderNames.TRAILER.contentEqualsIgnoreCase(headerName)) {
-                    addHeader(trailer.trailingHeaders(), buffer, nameStart, nameEnd, valueStart, valueEnd);
+                    addHeader(buffer.readerIndex());
+                    //addHeader(trailer.trailingHeaders(), buffer, nameStart, nameEnd, valueStart, valueEnd);
                 }
                 nameStart = -1;
                 nameEnd = -1;
@@ -722,7 +761,7 @@ public abstract class HttpObjectDecoder extends ByteToMessageDecoder {
             return null;
         }
 
-        buffer.readerIndex(headerParser.getNextReaderIndex());
+        headerProcessed = headerParser.getNextReaderIndex() - buffer.readerIndex();
         this.trailer = null;
         return trailer;
     }
