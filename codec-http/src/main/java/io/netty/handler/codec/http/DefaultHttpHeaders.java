@@ -420,10 +420,10 @@ public class DefaultHttpHeaders extends HttpHeaders {
                 return (CharSequence) value;
             }
             if (value instanceof Date) {
-                return DateFormatter.format((Date) value);
+                return DateFormatter.formatAscii((Date) value);
             }
             if (value instanceof Calendar) {
-                return DateFormatter.format(((Calendar) value).getTime());
+                return DateFormatter.formatAscii(((Calendar) value).getTime());
             }
             return value.toString();
         }
